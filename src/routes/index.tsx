@@ -38,6 +38,7 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 
 const PANEL_W = 360;
+const MAX_W = 1600;
 const RAIL_W = 210;
 /** Halo around the Instagram phone per ladder step: the app's sage, peach and blush. */
 const STEP_GLOW = [undefined, "#9EB384", "#F7D1BA", "#E5C3C6"] as const;
@@ -54,7 +55,7 @@ function useLayoutScale(rowRef: RefObject<HTMLDivElement | null>) {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const wide = w >= 1280;
-      const availW = wide ? (w - PANEL_W - RAIL_W - GAP * 3 - 64) / 2 : w - 24;
+      const availW = wide ? (Math.min(w, MAX_W) - PANEL_W - RAIL_W - GAP * 3 - 64) / 2 : w - 24;
       // Space below where the phones start (header height varies with wrapping), minus caption and margin.
       const top = rowRef.current
         ? rowRef.current.getBoundingClientRect().top + window.scrollY
@@ -89,7 +90,7 @@ function Index() {
 
   return (
     <main className="bg-reelio min-h-svh font-nunito text-r-ink">
-      <header className="mx-auto flex max-w-[1440px] flex-wrap items-end justify-between gap-4 px-5 pb-4 pt-5 sm:px-8">
+      <header className="mx-auto flex max-w-[1600px] flex-wrap items-end justify-between gap-4 px-5 pb-4 pt-5 sm:px-8">
         <div className="flex items-center gap-3">
           <img
             src="/reelio-logo-128.png"
@@ -140,7 +141,7 @@ function Index() {
 
       <div
         ref={rowRef}
-        className="mx-auto flex max-w-[1440px] items-start justify-center gap-7 px-0 pb-10 sm:px-8"
+        className="mx-auto flex max-w-[1600px] items-start justify-center gap-7 px-0 pb-10 sm:px-8"
       >
         <section className={cn(show("feed"), "flex-col items-center")}>
           <Caption n="01" title="Instagram Reels" sub="simulated feed" />
@@ -175,7 +176,7 @@ function Index() {
         </section>
 
         <section
-          className={cn(show("engine"), "w-full max-w-[380px] flex-col px-3 sm:px-0 xl:w-[360px]")}
+          className={cn(show("engine"), "w-full max-w-[380px] shrink-0 flex-col px-3 sm:px-0 xl:w-[360px]")}
         >
           <Caption n="03" title="How it decides" sub="the engine, live" />
           <div className="overflow-y-auto rounded-[22px]" style={{ maxHeight: PHONE_H * scale }}>
