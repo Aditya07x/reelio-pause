@@ -1,5 +1,5 @@
 // Generic, brand-free fake content for the vertical feed.
-import { clipFor, type Clip } from "./clips";
+import { backupsFor, clipFor, type Clip } from "./clips";
 
 export const REEL_COLORS = [
   "var(--reel-peach)",
@@ -89,8 +89,10 @@ export interface ReelContent {
   shares: string;
   colors: [string, string, string, string];
   shape: ReelShape;
-  /** Stock video for this card; undefined means a generated gradient card. */
+  /** Stock video for this card; undefined only before the clip list has loaded. */
   clip?: Clip | undefined;
+  /** Clips to fall back to, in order, if this one fails to load. */
+  backups: Clip[];
 }
 
 export function reelFor(id: number, clips: Clip[] = []): ReelContent {
@@ -115,5 +117,6 @@ export function reelFor(id: number, clips: Clip[] = []): ReelContent {
     colors: [c(0), c(1), c(2), c(3)],
     shape: pick(SHAPES, h >>> 3),
     clip,
+    backups: backupsFor(id, clips),
   };
 }

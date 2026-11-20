@@ -57,9 +57,7 @@ export function PauseOverlay({
       <div className="relative flex h-full flex-col px-5 pb-10 pt-14">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-full bg-r-blue">
-              <span className="size-2.5 rounded-full border-2 border-white/90" />
-            </span>
+            <img src="/reelio-logo-128.png" alt="" className="size-7 rounded-[7px] shadow-paper" />
             <span className="font-grotesk text-[15px] font-bold">Reelio</span>
           </div>
           <div className="flex items-center gap-1.5" aria-label="Step 3 of 3">

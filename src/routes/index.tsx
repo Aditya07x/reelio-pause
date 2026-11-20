@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { DriftPanel } from "@/components/reelio/drift-panel";
 import { EndScreen } from "@/components/reelio/end-screen";
+import { LadderRail } from "@/components/reelio/ladder-rail";
 import { Feed } from "@/components/reelio/feed";
 import { PHONE_H, PHONE_W, PhoneFrame } from "@/components/reelio/phone-frame";
 import { ReelioAppFrame } from "@/components/reelio/reelio-app-frame";
@@ -37,6 +38,7 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 
 const PANEL_W = 360;
+const RAIL_W = 210;
 const GAP = 28;
 
 /**
@@ -50,12 +52,12 @@ function useLayoutScale(rowRef: RefObject<HTMLDivElement | null>) {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const wide = w >= 1280;
-      const availW = wide ? (w - PANEL_W - GAP * 2 - 64) / 2 : w - 24;
+      const availW = wide ? (w - PANEL_W - RAIL_W - GAP * 3 - 64) / 2 : w - 24;
       // Space below where the phones start (header height varies with wrapping), minus caption and margin.
       const top = rowRef.current
         ? rowRef.current.getBoundingClientRect().top + window.scrollY
         : 140;
-      const availH = h - top - (w >= 640 ? 36 : 0) - 16;
+      const availH = h - top - (w >= 640 ? 36 : 0) - (wide ? 0 : 40) - 16;
       setScale(Math.max(0.45, Math.min(1, availW / PHONE_W, availH / PHONE_H)));
     };
     update();
@@ -87,9 +89,13 @@ function Index() {
     <main className="bg-reelio min-h-svh font-nunito text-r-ink">
       <header className="mx-auto flex max-w-[1440px] flex-wrap items-end justify-between gap-4 px-5 pb-4 pt-5 sm:px-8">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-r-mindful">
-            <span className="size-4 rounded-full border-[3.5px] border-white/85" />
-          </span>
+          <img
+            src="/reelio-logo-128.png"
+            alt="Reelio logo"
+            width={44}
+            height={44}
+            className="size-11 shrink-0 rounded-[11px] shadow-paper"
+          />
           <div>
             <h1 className="font-grotesk text-[30px] font-bold leading-none">Reelio</h1>
             <p className="mt-1 text-[13px] text-r-mute">
@@ -136,18 +142,26 @@ function Index() {
       >
         <section className={cn(show("feed"), "flex-col items-center")}>
           <Caption n="01" title="Instagram Reels" sub="simulated feed" />
-          <PhoneFrame
-            scale={scale}
-            clock={session.clock}
-            onHome={state.phase === "feed" ? session.close : undefined}
-            homeLabel="Leave the feed"
-          >
-            {state.phase === "feed" ? (
-              <Feed session={session} />
-            ) : (
-              <EndScreen state={state} onAnswer={session.answer} onReopen={session.start} />
-            )}
-          </PhoneFrame>
+          <div className="xl:hidden">
+            <LadderRail session={session} layout="row" />
+          </div>
+          <div className="flex items-start gap-7">
+            <div className="hidden xl:block">
+              <LadderRail session={session} />
+            </div>
+            <PhoneFrame
+              scale={scale}
+              clock={session.clock}
+              onHome={state.phase === "feed" ? session.close : undefined}
+              homeLabel="Leave the feed"
+            >
+              {state.phase === "feed" ? (
+                <Feed session={session} />
+              ) : (
+                <EndScreen state={state} onAnswer={session.answer} onReopen={session.start} />
+              )}
+            </PhoneFrame>
+          </div>
         </section>
 
         <section className={cn(show("app"), "flex-col items-center")}>

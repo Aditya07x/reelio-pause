@@ -44,11 +44,16 @@ export function useClips() {
 }
 
 /**
- * Roughly 3 clips : 1 generated card. Clips are assigned in sequence, so the same clip
- * never repeats until the whole list has played (with 15+ clips, never within 6 cards).
+ * Every reel is a clip. Clips are assigned in sequence, so the same clip never repeats
+ * until the whole list has played.
  */
 export function clipFor(id: number, clips: Clip[]): Clip | undefined {
-  if (!clips.length || id % 4 === 3) return undefined;
-  const seq = id - Math.floor(id / 4);
-  return clips[seq % clips.length];
+  if (!clips.length) return undefined;
+  return clips[id % clips.length];
+}
+
+/** The next few clips in the list, tried in order if this reel's clip fails to load. */
+export function backupsFor(id: number, clips: Clip[], n = 3): Clip[] {
+  if (clips.length < 2) return [];
+  return Array.from({ length: Math.min(n, clips.length - 1) }, (_, k) => clips[(id + k + 1) % clips.length]!);
 }

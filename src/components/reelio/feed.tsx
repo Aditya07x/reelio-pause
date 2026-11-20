@@ -54,7 +54,7 @@ function LadderChip({ level, minutes }: { level: Level; minutes: number }) {
           {level >= 2 ? (
             <MoodFace score={level === 2 ? 55 : 72} size={30} />
           ) : (
-            <span className="size-2.5 rounded-full" style={{ background: tone.dot }} />
+            <img src="/reelio-logo-128.png" alt="" className="size-7" />
           )}
         </span>
         <span className="min-w-0">

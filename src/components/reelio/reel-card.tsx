@@ -1,5 +1,6 @@
 import { Bookmark, Heart, MessageCircle, Music2, Send } from "lucide-react";
-import { memo, useEffect, useRef, type CSSProperties } from "react";
+import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
+import type { Clip } from "@/lib/clips";
 import type { ReelContent } from "@/lib/feed";
 
 function Backdrop({ reel }: { reel: ReelContent }) {
@@ -60,17 +61,14 @@ function Backdrop({ reel }: { reel: ReelContent }) {
   );
 }
 
-/** Only the card on screen plays; neighbours stay loaded and paused so the next swipe is instant. */
-function ClipVideo({
-  src,
-  poster,
-  active,
-}: {
-  src: string;
-  poster?: string | undefined;
-  active: boolean;
-}) {
+/**
+ * Only the card on screen plays; neighbours stay loaded and paused so the next swipe is instant.
+ * If a clip fails to load, the next backup is tried, so a reel is never left blank.
+ */
+function ClipVideo({ sources, active }: { sources: Clip[]; active: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const [k, setK] = useState(0);
+  const clip = sources[Math.min(k, sources.length - 1)]!;
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
@@ -80,17 +78,20 @@ function ClipVideo({
     } else {
       v.pause();
     }
-  }, [active]);
+  }, [active, k]);
   return (
     <video
       ref={ref}
+      key={clip.src}
       className="absolute inset-0 h-full w-full object-cover"
-      src={src}
-      poster={poster}
+      src={clip.src}
+      poster={clip.poster}
       muted
       loop
       playsInline
+      autoPlay={active}
       preload="auto"
+      onError={() => setK((i) => (i + 1 < sources.length ? i + 1 : i))}
       aria-hidden
     />
   );
@@ -144,10 +145,10 @@ export const ReelCard = memo(function ReelCard({
 
       onDoubleClick={engage}
     >
-      <Backdrop reel={reel} />
+      {reel.clip ? <div className="absolute inset-0 bg-[#16181a]" /> : <Backdrop reel={reel} />}
       {reel.clip && (
         <>
-          <ClipVideo src={reel.clip.src} poster={reel.clip.poster} active={active} />
+          <ClipVideo sources={[reel.clip, ...reel.backups]} active={active} />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent" />
         </>
