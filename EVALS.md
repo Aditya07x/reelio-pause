@@ -15,7 +15,7 @@ All evals run against the same pure code the app uses: `src/lib/drift.ts` holds 
 
 ---
 
-## 1. Automated tests: 42 passing
+## 1. Automated tests: 43 passing
 
 Run them with `bunx vitest run`.
 
@@ -24,7 +24,7 @@ Run them with `bunx vitest run`.
 | Evidence and weights | 2 | Weights come from `evidence.ts` and sum to 100. How the session started outweighs minutes in the feed (intention gap β 0.76 vs duration β 0.18, Ahmed et al. 2026). |
 | Individual signals | 11 | Each signal's range and edge cases:<br>• fast swipe < 2 s<br>• night = 9 pm–7 am<br>• purpose counts only after 1 min in the feed<br>• time counts from 2× the usual session<br>• in bed needs both sensors<br>• earlier-today load is relative to the person's usual day<br>• likes on watched reels lower the engagement signal, but like-and-swipe and liking nearly everything raise it |
 | Scenario evals | 9 | Behaviour patterns from the literature, run through the real reducer (see section 2). |
-| Intervention ladder | 6 | The steps fire in order; there are at least 2 min and 5 high reels between steps; the pause never comes before 14 min; 10 calm reels lift everything; an engaged viewer never reaches step 1; swipe distance is ⅓ normally and ⅔ with friction on. |
+| Intervention ladder | 7 | The steps fire in order; there are at least 2 min and 5 high reels between steps; the pause never comes before 14 min; 10 calm reels lift everything; an engaged viewer never reaches step 1; by hand, steps switch on only in order and stay on until reset; swipe distance is ⅓ normally and ⅔ with friction on. |
 | Pause message | 3 | Reminds the person of their purpose when there was one, asks an open question when there wasn't, and labels the demo clock. |
 | Session flow | 4 | Swiping is blocked while the pause shows; one log row per reel; today's total carries over; the check-in comes in 1 of 5 sessions, only after the session ends. |
 | Personal baseline | 6 | Starts at the research numbers. Moves halfway to the person's own mean after k sessions. A habitual skipper's skipping counts less. Check-ins move the threshold (−2 for a regretted session that was never paused, +3 for a paused session the person said was well spent). |
@@ -103,9 +103,11 @@ Both are open, not fixed.
 
 ## 5. How testers can see the ladder in the demo
 
+- **Quickest, by hand:** in the column beside the Instagram phone, tap step 1, then 2, then 3. Each one switches on at once: heavier swipes, then grayscale, then the pause screen. A step can't be skipped, and "Switch all off" resets. Steps switched on by hand are marked "by hand" and don't depend on the score.
+
 The ladder only appears for sessions that look like autopilot, so a tester has to scroll like one.
 
-- **Quickest:** the **"Set it up"** button in the *How it decides* panel. It sets "came to reply to a message", 11 pm, an hour of Reels earlier and the ×10 clock. Then swipe through reels in about a second each without liking anything.
+- **Letting the detector decide:** the **"Set it up"** button in the *How it decides* panel. It sets "came to reply to a message", 11 pm, an hour of Reels earlier and the ×10 clock. Then swipe through reels in about a second each without liking anything.
   - Step 1 comes after about 1 real minute (10 demo minutes).
   - Steps 2 and 3 follow at about 12 s intervals.
 - **By hand:** turn on Demo speed ×10 and swipe fast without liking.

@@ -222,6 +222,13 @@ export function useReelioSession() {
     markActive();
     dispatch({ type: "engage", id });
   }, []);
+  /** Demo: switch on the next ladder step by hand (1, then 2, then 3). */
+  const forceLevel = useCallback((level: 1 | 2 | 3) => {
+    dispatch({ type: "forceLevel", level, hour: hourRef.current });
+    markActive();
+  }, []);
+  const resetLadder = useCallback(() => dispatch({ type: "resetLadder" }), []);
+
   const setEntry = useCallback(
     (entry: EntryContext) => dispatch({ type: "setContext", entry }),
     [],
@@ -305,6 +312,8 @@ export function useReelioSession() {
     setSimulateNight,
     step,
     keepGoing,
+    forceLevel,
+    resetLadder,
     close,
     start,
     answer,

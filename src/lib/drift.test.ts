@@ -342,6 +342,27 @@ describe("intervention ladder", () => {
     expect(nextRung({ ...base, streak: 5, sessionMs: 10 * MIN })).toBe(1);
   });
 
+  it("by hand, steps switch on only in order, and stay on until reset", () => {
+    let s: SessionState = createSession(1);
+    s = sessionReducer(s, { type: "forceLevel", level: 2, hour: 14 });
+    expect(s.level).toBe(0);
+    s = sessionReducer(s, { type: "forceLevel", level: 1, hour: 14 });
+    expect(s.level).toBe(1);
+    s = sessionReducer(s, { type: "forceLevel", level: 3, hour: 14 });
+    expect(s.level).toBe(1);
+    s = sessionReducer(s, { type: "forceLevel", level: 2, hour: 14 });
+    s = sessionReducer(s, { type: "forceLevel", level: 3, hour: 14 });
+    expect(s.level).toBe(3);
+    expect(s.overlay).not.toBeNull();
+    s = sessionReducer(s, { type: "keepGoing" });
+    for (let i = 0; i < CALM_TO_RESET + 5; i++) {
+      s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 20_000, hour: 14 });
+    }
+    expect(s.level).toBe(3);
+    s = sessionReducer(s, { type: "resetLadder" });
+    expect(s.level).toBe(0);
+  });
+
   it("a swipe needs a third of the screen normally and two-thirds with friction on", () => {
     expect(swipeShareFor(0)).toBeCloseTo(1 / 3);
     expect(swipeShareFor(1)).toBeCloseTo(2 / 3);

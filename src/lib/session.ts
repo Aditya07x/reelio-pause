@@ -32,6 +32,8 @@ export interface LadderStep {
   atMs: number;
   reels: number;
   score: number;
+  /** Switched on by hand in the demo, not by the detector. */
+  manual?: boolean;
 }
 
 export type CheckInAnswer = "yes" | "no";
@@ -73,6 +75,8 @@ export interface SessionState {
   ladder: LadderStep[];
   /** The full-screen pause, when it is showing. */
   overlay: PauseOverlay | null;
+  /** A step was switched on by hand (demo): it stays on until reset, whatever the score. */
+  manualLadder: boolean;
   lastPauseAtMs: number | null;
   /** How this session started: observed passively on a phone, chosen in the demo panel. */
   entry: EntryContext;
@@ -105,6 +109,10 @@ export type SessionAction =
       baseline?: Baseline;
     }
   | { type: "keepGoing" }
+  /** Demo: switch on the next step of the ladder by hand. Only the next one is allowed. */
+  | { type: "forceLevel"; level: 1 | 2 | 3; hour: number | null }
+  /** Demo: switch every step off. */
+  | { type: "resetLadder" }
   | { type: "close" }
   | { type: "start"; baseline?: Baseline; dailyMinBefore?: number; startedAt?: number }
   | { type: "answer"; answer: CheckInAnswer };
@@ -147,6 +155,7 @@ export function createSession(
     peakLevel: 0,
     ladder: [],
     overlay: null,
+    manualLadder: false,
     lastPauseAtMs: null,
     entry: context.entry ?? "home",
     dailyMinBefore: context.dailyMinBefore ?? 0,
@@ -204,7 +213,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       const calm = score < threshold ? s.calm + 1 : 0;
       let { level, levelAtMs, ladder, overlay, pauseCount, lastPauseAtMs } = s;
       // Slowed down for long enough: step all the way back down.
-      if (level > 0 && calm >= CALM_TO_RESET) {
+      if (level > 0 && calm >= CALM_TO_RESET && !s.manualLadder) {
         level = 0;
         levelAtMs = s.sessionMs;
         ladder = [...ladder, { level: 0, atMs: s.sessionMs, reels: dwells.length, score }];
@@ -283,6 +292,67 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         dailyMinBefore: a.dailyMinBefore ?? s.dailyMinBefore,
         stillInDark: a.stillInDark ?? s.stillInDark,
         baseline: a.baseline ?? s.baseline,
+      };
+
+    case "forceLevel": {
+      if (s.phase !== "feed" || s.overlay) return s;
+      const repeatPause = a.level === 3 && s.level === 3;
+      if (a.level !== s.level + 1 && !repeatPause) return s;
+      const result = computeDrift({
+        sessionMs: s.sessionMs,
+        dwellsMs: s.dwells,
+        engaged: s.engaged,
+        hour: a.hour,
+        entry: s.entry,
+        dailyMinBefore: s.dailyMinBefore,
+        stillInDark: s.stillInDark,
+        baseline: s.baseline,
+      });
+      const step: LadderStep = {
+        level: a.level,
+        atMs: s.sessionMs,
+        reels: s.dwells.length,
+        score: result.score,
+        manual: true,
+      };
+      const reasons = pauseReasons(result, s.entry, s.sessionMs, s.dailyMinBefore);
+      return {
+        ...s,
+        level: a.level,
+        levelAtMs: s.sessionMs,
+        peakLevel: Math.max(s.peakLevel, a.level) as Level,
+        ladder: [...s.ladder, step],
+        manualLadder: true,
+        streak: 0,
+        calm: 0,
+        ...(a.level === 3
+          ? {
+              overlay: {
+                id: `pause-${s.sessionNumber}-${s.pauseCount}`,
+                waitMs: interruptionWaitMs(s.keptGoing),
+                sessionMs: s.sessionMs,
+                reels: s.dwells.length,
+                entry: s.entry,
+                reasons: reasons.length ? reasons : ["Switched on by hand for this demo"],
+              },
+              pauseCount: s.pauseCount + 1,
+              lastPauseAtMs: s.sessionMs,
+            }
+          : {}),
+      };
+    }
+
+    case "resetLadder":
+      if (s.phase !== "feed") return s;
+      return {
+        ...s,
+        level: 0,
+        levelAtMs: s.sessionMs,
+        overlay: null,
+        manualLadder: false,
+        streak: 0,
+        calm: 0,
+        ladder: s.level > 0 ? [...s.ladder, { level: 0, atMs: s.sessionMs, reels: s.dwells.length, score: 0, manual: true }] : s.ladder,
       };
 
     case "keepGoing": {
