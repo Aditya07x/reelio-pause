@@ -229,7 +229,8 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
             Session context
           </p>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            A phone reads these passively. Here you set them to see how the score reacts.
+            A phone reads these passively, and only while you are on the Reels feed. Here you set
+            them to see how the score reacts.
           </p>
           <label className="mt-3 block text-[13px]">
             How this session started

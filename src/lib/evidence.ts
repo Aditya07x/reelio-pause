@@ -397,3 +397,40 @@ export const SIGNAL_AUDIT: {
     note: "Not detector inputs. The 1-in-5 post-session check-in is how the detector would be tested and tuned.",
   },
 ];
+
+/**
+ * When Reelio is active. Mirrors the Reelio Android app's existing detection code
+ * (InstaAccessibilityService.kt and ReelContextDetector.kt).
+ */
+export const ACTIVATION = {
+  summary:
+    "Reelio only watches the Reels feed. Messaging, search, profiles, Stories and everything else on the phone are ignored: no score, no timer, no pause.",
+  steps: [
+    {
+      title: "Only Instagram",
+      body: "The Android accessibility service drops every event that does not come from Instagram's app package before doing anything else.",
+    },
+    {
+      title: "Only the Reels screen",
+      body: "A screen counts as the Reels feed only when three things are true at once: a view fills at least 80% of the screen height, the screen is built on a vertical pager, and the screen carries a 'Reels' label. A chat thread, the search page or a profile fails at least one of these.",
+    },
+    {
+      title: "Only full-screen swipes",
+      body: "A reel is counted when a full-height vertical scroll settles on a new item (a 150 ms settle check filters jitter). Partial-height scrolls, like scrolling a comment section, are ignored.",
+    },
+    {
+      title: "Sheets pause counting",
+      body: "When a comment, share or send-to sheet opens on top of a reel, counting stops until it closes, so replying to someone from Reels is not counted as scrolling.",
+    },
+    {
+      title: "Leaving Reels freezes the score",
+      body: "Moving to messages or any other screen stops the clock. Coming back resumes it; after 5 minutes away the session ends and the next one starts fresh.",
+    },
+  ],
+  privacy:
+    "The service reads the screen's structure (view types, sizes and labels) only to answer one question: is this the Reels feed? It logs timings and taps on the Reels screen. It does not store message text, captions or what the videos show.",
+  limits:
+    "This relies on Android's accessibility service, which needs explicit user consent and a Play Store declaration, and an Instagram redesign can break the screen check. iOS does not let apps see inside other apps, so an iPhone version could only use time-based signals.",
+  demoNote:
+    "In this prototype the phone shows only a Reels-style feed, so it is always active. The 'How the session started' setting stands in for what happened before the person reached Reels.",
+};

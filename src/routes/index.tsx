@@ -38,7 +38,11 @@ function Index() {
           <p className="mt-4 font-soft text-[19px] font-light italic leading-snug text-muted-foreground">
             Notices when scrolling stops being a choice, and gently says so.
           </p>
-          <ul className="mt-10 space-y-3 text-[13px] text-muted-foreground">
+          <p className="mt-6 text-[13px] leading-relaxed text-foreground/80">
+            Active only while you scroll Reels. Messages, search and the rest of the app are never
+            scored or interrupted.
+          </p>
+          <ul className="mt-6 space-y-3 text-[13px] text-muted-foreground">
             <li>Swipe, scroll or press ↑ ↓ to move through the feed.</li>
             <li>Tap the bar at the bottom of the phone to leave.</li>
             <li>Like or save a reel by tapping the heart or bookmark.</li>

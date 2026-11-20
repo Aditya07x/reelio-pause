@@ -84,7 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Reelio" },
       { name: "description", content: "Reelio notices doomscrolling and gently interrupts it." },
       { property: "og:title", content: "Reelio" },
-      { property: "og:description", content: "Reelio notices doomscrolling and gently interrupts it." },
+      {
+        property: "og:description",
+        content: "Reelio notices doomscrolling and gently interrupts it.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

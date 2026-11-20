@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { COOLDOWN_MS, DRIFT_THRESHOLD, MIN_FEED_MS, STREAK_TO_INTERRUPT } from "@/lib/drift";
 import {
+  ACTIVATION,
   AHMED_2026,
   FACTORS,
   INTERRUPT_RULES,
@@ -85,6 +86,40 @@ function AssumptionsPage() {
             yet. That is the next step (see the end of this page).
           </p>
         </header>
+
+        <section className="mt-10 rounded-[1.5rem] bg-card p-6 shadow-soft">
+          <h2 className="font-soft text-[26px]">Active only while scrolling Reels</h2>
+          <p className="mt-2 max-w-3xl text-[14px] leading-relaxed text-muted-foreground">
+            {ACTIVATION.summary}
+          </p>
+          <ol className="mt-5 grid gap-3 md:grid-cols-2">
+            {ACTIVATION.steps.map((st, i) => (
+              <li key={st.title} className="rounded-2xl bg-foreground/[0.035] p-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-soft text-[18px] tabular-nums text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  <h3 className="font-soft text-[18px]">{st.title}</h3>
+                </div>
+                <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{st.body}</p>
+              </li>
+            ))}
+          </ol>
+          <dl className="mt-5 grid gap-4 text-[13px] leading-relaxed md:grid-cols-3">
+            <div>
+              <dt className="font-medium">What it reads</dt>
+              <dd className="text-muted-foreground">{ACTIVATION.privacy}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Limits</dt>
+              <dd className="text-muted-foreground">{ACTIVATION.limits}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">In this demo</dt>
+              <dd className="text-muted-foreground">{ACTIVATION.demoNote}</dd>
+            </div>
+          </dl>
+        </section>
 
         <section className="mt-10 grid gap-3 sm:grid-cols-3">
           {[
