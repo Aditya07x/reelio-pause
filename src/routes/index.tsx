@@ -4,7 +4,7 @@ import { DriftPanel } from "@/components/reelio/drift-panel";
 import { EndScreen } from "@/components/reelio/end-screen";
 import { Feed } from "@/components/reelio/feed";
 import { PhoneFrame } from "@/components/reelio/phone-frame";
-import { ReelioApp } from "@/components/reelio/reelio-app";
+import { ReelioAppFrame } from "@/components/reelio/reelio-app-frame";
 import { useReelioSession } from "@/hooks/use-reelio-session";
 import { cn } from "@/lib/utils";
 
@@ -120,9 +120,9 @@ function Index() {
         </section>
 
         <section className={cn(show("app"), "flex-col items-center")}>
-          <Caption n="02" title="The Reelio app" sub="what you see" />
-          <PhoneFrame size={PHONE} screen="bg-r-bg" clock={session.clock} homeLabel="Reelio">
-            <ReelioApp session={session} />
+          <Caption n="02" title="The Reelio app" sub="the real app UI, fed live" />
+          <PhoneFrame size={PHONE} screen="bg-[#EDE8DF]" clock={session.clock} homeLabel="Reelio">
+            <ReelioAppFrame session={session} />
           </PhoneFrame>
         </section>
 

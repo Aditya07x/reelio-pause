@@ -15,7 +15,9 @@ import {
   type CheckInAnswer,
   type SessionState,
 } from "@/lib/session";
+import { driversFrom } from "@/lib/reelio-payload";
 import { stateFor } from "@/lib/states";
+import type { DriftResult } from "@/lib/drift";
 
 const HISTORY_KEY = "reelio-history-v1";
 
@@ -37,7 +39,13 @@ function saveHistory(h: SessionSummary[]) {
 }
 
 /** Turn a finished session into the summary Reelio keeps (no content, just behaviour). */
-export function summarise(s: SessionState, id: number, now: number): SessionSummary {
+export function summarise(
+  s: SessionState,
+  id: number,
+  now: number,
+  drift?: DriftResult,
+  lastEnd?: number | null,
+): SessionSummary {
   const n = s.dwells.length;
   const minutes = s.sessionMs / 60000;
   return {
@@ -53,7 +61,19 @@ export function summarise(s: SessionState, id: number, now: number): SessionSumm
     state: stateFor(s.peakScore).key,
     pauses: s.pauseCount,
     checkIn: null,
+    drivers: drift
+      ? driversFrom(
+          drift.parts,
+          s,
+          lastEnd ? Math.max(0, ((s.startedAt || now - s.sessionMs) - lastEnd) / 60000) : null,
+        )
+      : undefined,
   };
+}
+
+export function lastEndOf(h: SessionSummary[]) {
+  const l = h.at(-1);
+  return l ? l.startedAt + l.minutes * 60000 : null;
 }
 
 const LATE_NIGHT_HOUR = 23;
@@ -153,7 +173,10 @@ export function useReelioSession() {
     const s = stateRef.current;
     if (s.phase === "feed" && reelsSeen(s) > 1) {
       const h = historyRef.current;
-      const next = [...h, summarise(s, (h.at(-1)?.id ?? 0) + 1, Date.now())];
+      const next = [
+        ...h,
+        summarise(s, (h.at(-1)?.id ?? 0) + 1, Date.now(), driftRef.current, lastEndOf(h)),
+      ];
       setHistory(next);
     }
     dispatch({ type: "close" });
@@ -238,6 +261,9 @@ export function useReelioSession() {
       currentDwellMs,
     ],
   );
+
+  const driftRef = useRef(drift);
+  driftRef.current = drift;
 
   /** Download this session's per-card events as JSON (the same fields the Android app logs per reel). */
   const exportLog = useCallback(() => {

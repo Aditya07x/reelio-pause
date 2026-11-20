@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none';">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Reelio</title>
+  <style>
+    /* ── Offline Google Fonts ── */
+    @font-face {
+      font-family: 'Space Grotesk';
+      font-style: normal;
+      font-weight: 300 800;
+      font-display: swap;
+      src: url('fonts/SpaceGrotesk-Latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Nunito';
+      font-style: normal;
+      font-weight: 400 900;
+      font-display: swap;
+      src: url('fonts/Nunito-Latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Space Mono';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('fonts/SpaceMono-Regular.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Space Mono';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('fonts/SpaceMono-Bold.woff2') format('woff2');
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: #EDE8DF;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    #root {
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    .mono {
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+    }
+
+    .spacemono {
+      font-family: 'Space Mono', monospace;
+    }
+
+    .boot {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: #EDE8DF;
+      color: #6A5E56;
+    }
+
+    .boot-spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid rgba(107, 63, 160, 0.2);
+      border-top-color: #6B3FA0;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root">
+    <div class="boot">
+      <div class="boot-spinner"></div>
+      <div class="mono" style="font-size:11px;letter-spacing:.18em">REELIO LIVE</div>
+    </div>
+  </div>
+
+  <!-- Prototype bridge: stands in for the Android WebView's window.Android and Kotlin's data push.
+       The parent page (the Reels simulation) sends payloads in the same shape the Python model produces. -->
+  <script>
+    window.Android = {
+      isAccessibilityEnabled: function () { return true; },
+      enableAccessibility: function () {},
+      getSurveyFrequency: function () { return 0.2; },
+      setSurveyFrequency: function () {},
+      getSleepSchedule: function () { return "23,7"; },
+      setSleepSchedule: function () {},
+      clearData: function () { window.parent && window.parent.postMessage({ type: "reelio-clear" }, "*"); },
+      exportCsv: function () {}
+    };
+    window.addEventListener("message", function (e) {
+      if (!e.data || e.data.type !== "reelio-payload") return;
+      window.injectedJsonData = e.data.payload;
+      if (window.reactDataCallback) window.reactDataCallback(e.data.payload);
+    });
+  </script>
+  <script defer src="react.min.js"></script>
+  <script defer src="react-dom.min.js"></script>
+  <script defer src="prop-types.min.js"></script>
+  <script defer src="recharts.min.js"></script>
+
+  <script defer>
+    (function () {
+      'use strict';
+
+      function showBootError(message) {
+        var root = document.getElementById('root');
+        if (!root) return;
+        root.innerHTML =
+          '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#EDE8DF;padding:18px">' +
+          '<div style="max-width:460px;border:1px solid rgba(196,86,58,.35);border-radius:12px;padding:14px;color:#C4563A;font-family:monospace;font-size:12px;line-height:1.5">' +
+          '<div style="font-weight:700;margin-bottom:6px">UI startup failed</div>' +
+          '<div>' + String(message || 'Unknown error') + '</div>' +
+          '</div></div>';
+      }
+
+      window.addEventListener('error', function (ev) {
+        var msg = (ev && ev.error && ev.error.message) || (ev && ev.message) || 'Unknown script error';
+        showBootError(msg);
+      });
+
+      window.addEventListener('unhandledrejection', function (ev) {
+        var reason = ev && ev.reason;
+        var msg = (reason && reason.message) ? reason.message : String(reason || 'Unhandled promise rejection');
+        showBootError(msg);
+      });
+
+      window.injectDataB64 = function (b64) {
+        var parsed;
+        try {
+          parsed = JSON.parse(atob(b64));
+        } catch (ex) {
+          parsed = { error: "Parse error: " + ex.message };
+        }
+        window.injectedJsonData = parsed;
+        if (window.reactDataCallback) window.reactDataCallback(parsed);
+      };
+
+      window.injectData = function (jsonStr) {
+        var parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch (ex) {
+          parsed = { error: "JSON parse error: " + ex.message };
+        }
+        window.injectedJsonData = parsed;
+        if (window.reactDataCallback) window.reactDataCallback(parsed);
+      };
+    })();
+  </script>
+
+  <script defer src="app.bundle.js"></script>
+</body>
+
+</html>

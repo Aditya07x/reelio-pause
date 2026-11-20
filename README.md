@@ -2,7 +2,7 @@
 
 Reelio notices when scrolling Reels stops being a choice, and pauses it once, gently.
 
-This repo is the clickable prototype, in three panels: **(1)** a simulated Instagram Reels feed you scroll, **(2)** the Reelio app itself (Monitor, Sessions, Baseline), styled after the Reelio Android app, updating live with the four capture states Mindful / Aware / Hooked / Doom, and **(3)** "How it decides", the engine's live working. An Assumptions page cites the research behind every signal.
+This repo is the clickable prototype, in three panels: **(1)** a simulated Instagram Reels feed you scroll, **(2)** the real Reelio app UI (the Android app's WebView bundle, unchanged, in `public/reelio-app/`), fed live from the simulated session in the same JSON shape the Python model produces (`src/lib/reelio-payload.ts`), so Monitor, Calendar, Dashboard and Settings behave as on the phone, with the four capture states Mindful / Aware / Hooked / Doom, and **(3)** "How it decides", the engine's live working. An Assumptions page cites the research behind every signal.
 
 ## What it does
 
@@ -30,7 +30,8 @@ bun run test     # 34 tests: unit checks, literature-based scenario evals, basel
 | `src/lib/session.ts` | Session state as a pure reducer |
 | `src/lib/baseline.ts` | Personal baselines, priors, check-in tuning, synthetic sample users |
 | `src/lib/states.ts` | The four capture states and cut-offs (from the Android app) |
-| `src/components/reelio/reelio-app.tsx` | The Reelio app screens |
+| `public/reelio-app/` | The Reelio Android app's UI bundle, unchanged, plus a small stub for the Android bridge |
+| `src/lib/reelio-payload.ts` | Builds the app's data payload from the prototype's sessions (driver mapping documented there) |
 | `src/lib/drift.test.ts` | Unit tests and scenario evals |
 | `src/routes/assumptions.tsx` | The Assumptions page |
 | `public/clips/manifest.json` | 27 free Pexels clips (streamed from Pexels, creators credited) |

@@ -10,6 +10,7 @@
 // author's data: the priors come from the literature (see evidence.ts), the rest is the user's own.
 
 import type { EntryContext } from "./drift";
+import type { Drivers } from "./reelio-payload";
 import type { StateKey } from "./states";
 
 export interface SessionSummary {
@@ -28,6 +29,8 @@ export interface SessionSummary {
   state: StateKey;
   pauses: number;
   checkIn: "yes" | "no" | null;
+  /** What pulled the session in, in the Android app's seven-driver vocabulary (0–1 each). */
+  drivers?: Drivers | undefined;
 }
 
 export interface Baseline {
@@ -186,6 +189,26 @@ export function sampleHistory(persona: SamplePersona, now = Date.now()): Session
                 : "mindful",
         pauses: persona === "evening" && peakScore >= 70 ? 1 : 0,
         checkIn: null,
+        drivers:
+          persona === "light"
+            ? {
+                session_length: 0.05 + r() * 0.1,
+                exit_conflict: 0,
+                rapid_reentry: 0.3 + r() * 0.5,
+                scroll_automaticity: 0.05 + r() * 0.15,
+                dwell_collapse: 0.1 + r() * 0.2,
+                rewatch_compulsion: r() * 0.2,
+                environment: hour % 24 >= 21 ? 0.67 : 0,
+              }
+            : {
+                session_length: 0.4 + r() * 0.6,
+                exit_conflict: peakScore >= 70 ? 0.5 + r() * 0.3 : r() * 0.2,
+                rapid_reentry: r() * 0.2,
+                scroll_automaticity: 0.5 + r() * 0.5,
+                dwell_collapse: 0.6 + r() * 0.4,
+                rewatch_compulsion: r() * 0.3,
+                environment: hour % 24 >= 21 ? 0.67 + r() * 0.33 : 0,
+              },
       });
     }
   }

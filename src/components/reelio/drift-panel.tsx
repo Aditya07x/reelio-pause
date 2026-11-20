@@ -10,6 +10,7 @@ import {
   shouldCheckIn,
   thresholdFor,
 } from "@/lib/drift";
+import { personalWeight, PERSONAS, PRIORS } from "@/lib/baseline";
 import { FACTORS, type Strength } from "@/lib/evidence";
 import { reelsSeen } from "@/lib/session";
 import { STATE_CUTS, stateFor } from "@/lib/states";
@@ -103,6 +104,9 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
     setEntry,
     setDailyMinBefore,
     setStillInDark,
+    baseline,
+    loadSample,
+    clearHistory,
   } = session;
   const st = stateFor(drift.score);
   const live = state.phase === "feed";
@@ -210,6 +214,79 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
               <Mono className="text-[9px]">{k}</Mono>
             </div>
           ))}
+        </div>
+
+        <div className="border-t border-r-line pt-4">
+          <Mono>Your baseline</Mono>
+          <p className="mt-1 text-[11.5px] text-r-mute">
+            {baseline.n
+              ? `Learned from ${baseline.n} sessions over ${baseline.days} days. Starts at research defaults, then moves towards your own pattern.`
+              : "No history yet: using research defaults. Each finished session moves these towards your own pattern."}
+          </p>
+          <div className="mt-2.5 grid grid-cols-3 gap-2 text-center">
+            {[
+              [
+                "Session",
+                `${baseline.sessionMin.toFixed(1)}m`,
+                personalWeight(baseline.n, PRIORS.sessionMin.k),
+              ],
+              [
+                "Skips",
+                `${Math.round(baseline.skipRate * 100)}%`,
+                personalWeight(baseline.n, PRIORS.skipRate.k),
+              ],
+              [
+                "Day",
+                `${Math.round(baseline.dailyMin)}m`,
+                personalWeight(baseline.days, PRIORS.dailyMin.k),
+              ],
+            ].map(([k, v, w]) => (
+              <div key={k as string} className="rounded-2xl bg-r-paper px-1 py-2.5">
+                <div className="font-grotesk text-[17px] font-bold tabular-nums">{v as string}</div>
+                <Mono className="text-[9px]">{k as string}</Mono>
+                <div className="mx-auto mt-1.5 h-1 w-3/4 overflow-hidden rounded-full bg-r-section">
+                  <div
+                    className="h-full bg-r-blue-dark"
+                    style={{ width: `${Math.round((w as number) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-1 text-[9.5px] text-r-mute">
+                  {Math.round((w as number) * 100)}% you
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            {(Object.keys(PERSONAS) as (keyof typeof PERSONAS)[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => loadSample(p)}
+                title={PERSONAS[p].description}
+                className="rounded-xl bg-r-paper px-2.5 py-2 text-left hover:bg-r-section"
+              >
+                <div className="font-grotesk text-[12px] font-bold">Load: {PERSONAS[p].label}</div>
+                <div className="text-[10px] leading-tight text-r-mute">
+                  {PERSONAS[p].description}
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10.5px] text-r-mute">
+            Sample users are 14 days of generated history, not real people.
+            {baseline.n > 0 && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={clearHistory}
+                  className="underline underline-offset-2"
+                >
+                  Clear history
+                </button>
+              </>
+            )}
+          </p>
         </div>
 
         <div className="border-t border-r-line pt-4">
