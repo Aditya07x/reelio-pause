@@ -14,6 +14,13 @@ export const RECENT_WINDOW = 8;
 /** Cards needed before swipe-based signals count fully. */
 export const CONFIDENT_AFTER = 5;
 
+/**
+ * How "time on each card" summarises the recent window. v1 used the mean; replaying real
+ * sessions showed one long reel drags the mean up and hides skimming, so v2 uses the median.
+ */
+export type DwellStat = "median" | "mean";
+export const DWELL_STAT: DwellStat = "median";
+
 export const WEIGHTS = { session: 35, dwell: 20, fast: 30, night: 15 } as const;
 
 export interface DriftInput {
@@ -24,6 +31,7 @@ export interface DriftInput {
   /** Time on the card currently on screen. Lingering is the opposite of skimming, so once it is
    * longer than a fast swipe it counts as a provisional sample and pulls the score down live. */
   currentDwellMs?: number;
+  dwellStat?: DwellStat;
 }
 
 export interface DriftPart {
@@ -44,6 +52,12 @@ export interface DriftResult {
 
 const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
 
+function median(xs: number[]) {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+}
+
 export function isFastSwipe(dwellMs: number) {
   return dwellMs < FAST_SWIPE_MS;
 }
@@ -61,6 +75,7 @@ export function computeDrift({
   hour,
   baselineMin = BASELINE_MIN,
   currentDwellMs = 0,
+  dwellStat = DWELL_STAT,
 }: DriftInput): DriftResult {
   const sessionMin = sessionMs / 60000;
   // Reaches full weight at twice the personal baseline.
@@ -70,7 +85,9 @@ export function computeDrift({
   const recent = samples.slice(-RECENT_WINDOW);
   const n = recent.length;
   const confidence = Math.min(1, n / CONFIDENT_AFTER);
-  const avgDwellSec = n ? recent.reduce((a, b) => a + b, 0) / n / 1000 : 0;
+  const avgDwellSec = n
+    ? (dwellStat === "median" ? median(recent) : recent.reduce((a, b) => a + b, 0) / n) / 1000
+    : 0;
   // Short average time per card = skimming. 1.5 s or less is full weight, 6 s or more is none.
   const dwellF = n ? clamp((6 - avgDwellSec) / 4.5) * confidence : 0;
   const fastCount = recent.filter(isFastSwipe).length;
@@ -90,7 +107,7 @@ export function computeDrift({
       label: "Time on each card",
       points: dwellF * WEIGHTS.dwell,
       max: WEIGHTS.dwell,
-      detail: n ? `about ${avgDwellSec.toFixed(1)} s per card` : "waiting for a few cards",
+      detail: n ? `typically ${avgDwellSec.toFixed(1)} s per card` : "waiting for a few cards",
     },
     {
       key: "fast",

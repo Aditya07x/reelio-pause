@@ -45,6 +45,13 @@ describe("drift score", () => {
     expect(computeDrift({ ...base, currentDwellMs: 1500 }).score).toBe(computeDrift(base).score);
   });
 
+  it("one long reel does not hide skimming (median, not mean)", () => {
+    const dwellsMs = [800, 900, 700, 60_000, 800, 900, 700, 800];
+    const v2 = computeDrift({ sessionMs: 0, dwellsMs, hour: 14 });
+    const v1 = computeDrift({ sessionMs: 0, dwellsMs, hour: 14, dwellStat: "mean" });
+    expect(part(v2, "dwell")).toBeGreaterThan(part(v1, "dwell"));
+  });
+
   it("stays between 0 and 100", () => {
     const r = computeDrift({ sessionMs: 120 * MIN, dwellsMs: Array(10).fill(300), hour: 2 });
     expect(r.score).toBe(100);
@@ -130,5 +137,14 @@ describe("check-in", () => {
     s = sessionReducer(s, { type: "close" });
     expect(s.phase).toBe("ended");
     expect(s.askCheckIn).toBe(true);
+  });
+});
+
+describe("replay on real sessions", async () => {
+  const { DETECTORS, scorecard } = await import("./replay");
+  it("v2 catches more regretted time than v1 without more false alarms than the timer", () => {
+    const [v2, v1, timer] = DETECTORS.map((d) => scorecard(d));
+    expect(v2!.minutesAfterAlert).toBeGreaterThan(v1!.minutesAfterAlert);
+    expect(v2!.falseAlarms).toBeLessThan(timer!.falseAlarms);
   });
 });

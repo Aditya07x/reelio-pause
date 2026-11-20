@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { DriftPanel } from "@/components/reelio/drift-panel";
 import { EndScreen } from "@/components/reelio/end-screen";
 import { Feed } from "@/components/reelio/feed";
@@ -43,6 +43,12 @@ function Index() {
             <li>Tap the bar at the bottom of the phone to leave.</li>
             <li>Turn on demo speed and swipe quickly to meet a pause sooner.</li>
           </ul>
+          <Link
+            to="/replay"
+            className="mt-8 inline-flex rounded-full bg-card px-4 py-2 text-[13px] font-medium shadow-soft hover:bg-card/80"
+          >
+            Replay 56 real sessions →
+          </Link>
         </aside>
 
         <PhoneFrame

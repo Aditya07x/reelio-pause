@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -251,6 +252,12 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
             </Button>
           )}
         </div>
+        <Link
+          to="/replay"
+          className="mt-3 block text-[12px] font-medium text-foreground underline underline-offset-2 lg:hidden"
+        >
+          Replay 56 real sessions →
+        </Link>
         {state.events.length > 0 && (
           <button
             type="button"
