@@ -125,11 +125,11 @@ export const FACTORS: FactorEvidence[] = [
     label: "Skip rate",
     weight: 20,
     strength: "moderate",
-    measures: "Share of the last 8 reels left within 2 seconds.",
+    measures: "Share of the last 10 reels left within 2 seconds.",
     finding:
       "Across seven experiments (N = 1,223), bored people switch videos more, and switching makes them more bored, less satisfied and less attentive. On a TikTok-style feed, swipes cluster just after a video starts or at its end, so an early swipe means rejecting, not watching.",
     threshold:
-      "Under 2 s counts as a skip; full weight when half of the last 8 reels are skips. Both are design assumptions.",
+      "Under 2 s counts as a skip; full weight when half of the last 10 reels are skips. Both are design assumptions.",
     onDevice: "Time between reel changes, from scroll events.",
     reelioColumns: ["DwellTime", "ScrollStreak", "CumulativeReels"],
     sources: [TAM_2024, DASHLET_2022],

@@ -1,1 +1,194 @@
-{ "clips": [] }
+{
+  "note": "Free stock clips from Pexels (Pexels license: free to use, no attribution required; credited anyway). Streamed from Pexels' CDN.",
+  "clips": [
+    {
+      "src": "https://videos.pexels.com/video-files/33167518/14135617_540_960_25fps.mp4",
+      "title": "Street vendor selling roasted chestnuts",
+      "credit": "Emre Simsek",
+      "source": "https://www.pexels.com/video/33167518/",
+      "tag": "street food"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/7815139/7815139-sd_540_960_30fps.mp4",
+      "title": "Backpackers arriving in the hostel",
+      "credit": "George Pak",
+      "source": "https://www.pexels.com/video/7815139/",
+      "tag": "travel"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/7824427/7824427-sd_540_960_30fps.mp4",
+      "title": "Two backpackers heading downstairs",
+      "credit": "George Pak",
+      "source": "https://www.pexels.com/video/7824427/",
+      "tag": "travel"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/10814082/10814082-sd_540_960_25fps.mp4",
+      "title": "Cute puppies in close up",
+      "credit": "Anna Bondarenko",
+      "source": "https://www.pexels.com/video/10814082/",
+      "tag": "puppy"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/29337111/12645443_540_960_60fps.mp4",
+      "title": "Playful brown puppies resting outdoors",
+      "credit": "Shubham Jana",
+      "source": "https://www.pexels.com/video/29337111/",
+      "tag": "puppy"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/36242522/15369798_540_960_60fps.mp4",
+      "title": "Black and white cat relaxing",
+      "credit": "C1 Superstar",
+      "source": "https://www.pexels.com/video/36242522/",
+      "tag": "cat"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/37848043/16055246_540_960_24fps.mp4",
+      "title": "Preparing fresh vegetables at home",
+      "credit": "Ardina Setiorini",
+      "source": "https://www.pexels.com/video/37848043/",
+      "tag": "cooking"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/37848044/16055289_540_960_24fps.mp4",
+      "title": "Home cooking, cozy kitchen",
+      "credit": "Ardina Setiorini",
+      "source": "https://www.pexels.com/video/37848044/",
+      "tag": "cooking"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/16754842/16754842-sd_540_960_30fps.mp4",
+      "title": "Drone over a waterfall and forest",
+      "credit": "Leonardo Dourado",
+      "source": "https://www.pexels.com/video/16754842/",
+      "tag": "waterfall"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/31002853/13252263_540_960_60fps.mp4",
+      "title": "Winter waterfall cascade",
+      "credit": "C1 Superstar",
+      "source": "https://www.pexels.com/video/31002853/",
+      "tag": "waterfall"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/9620654/9620654-sd_540_960_30fps.mp4",
+      "title": "Waves of the ocean",
+      "credit": "Ahmed",
+      "source": "https://www.pexels.com/video/9620654/",
+      "tag": "ocean"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/4824411/4824411-sd_540_960_30fps.mp4",
+      "title": "Skating the street with friends",
+      "credit": "Artem Podrez",
+      "source": "https://www.pexels.com/video/4824411/",
+      "tag": "skate"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/5039531/5039531-sd_506_960_25fps.mp4",
+      "title": "A skateboarder failing a trick",
+      "credit": "cottonbro studio",
+      "source": "https://www.pexels.com/video/5039531/",
+      "tag": "skate"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/31264406/13351823_540_960_25fps.mp4",
+      "title": "Espresso brewing into a cup",
+      "credit": "İsa Kılavuzoğlu",
+      "source": "https://www.pexels.com/video/31264406/",
+      "tag": "coffee"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/6343885/6343885-sd_506_960_30fps.mp4",
+      "title": "Morning coffee",
+      "credit": "Katrin Bolovtsova",
+      "source": "https://www.pexels.com/video/6343885/",
+      "tag": "coffee"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/36906465/15634326_540_960_60fps.mp4",
+      "title": "Ocean sunset, dramatic sky",
+      "credit": "Nothing Ahead",
+      "source": "https://www.pexels.com/video/36906465/",
+      "tag": "sunset"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/20700707/20700707-sd_540_960_30fps.mp4",
+      "title": "Sun setting over a field",
+      "credit": "Emilio González",
+      "source": "https://www.pexels.com/video/20700707/",
+      "tag": "sunset"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/32200251/13732689_540_960_60fps.mp4",
+      "title": "Green alpine mountains",
+      "credit": "C1 Superstar",
+      "source": "https://www.pexels.com/video/32200251/",
+      "tag": "mountains"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/27946617/12269094_540_960_30fps.mp4",
+      "title": "Walking up a rocky mountain trail",
+      "credit": "Ex Route Adventures",
+      "source": "https://www.pexels.com/video/27946617/",
+      "tag": "mountains"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/7480487/7480487-sd_540_960_25fps.mp4",
+      "title": "Group of friends dancing",
+      "credit": "MART PRODUCTION",
+      "source": "https://www.pexels.com/video/7480487/",
+      "tag": "dance"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/8462345/8462345-sd_506_960_25fps.mp4",
+      "title": "Ballet practice",
+      "credit": "MART PRODUCTION",
+      "source": "https://www.pexels.com/video/8462345/",
+      "tag": "dance"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/35487051/15033825_540_960_30fps.mp4",
+      "title": "Pottery on a spinning wheel, outdoors",
+      "credit": "Vikram Kumbhar",
+      "source": "https://www.pexels.com/video/35487051/",
+      "tag": "pottery"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/6693577/6693577-sd_506_960_25fps.mp4",
+      "title": "Shaping a pot out of clay",
+      "credit": "cottonbro studio",
+      "source": "https://www.pexels.com/video/6693577/",
+      "tag": "pottery"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/34601858/14664327_540_960_30fps.mp4",
+      "title": "Barista making latte art",
+      "credit": "Esra Afşar",
+      "source": "https://www.pexels.com/video/34601858/",
+      "tag": "latte"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/37540014/15906188_540_960_25fps.mp4",
+      "title": "Bustling market, street vendor",
+      "credit": "Kaji Rimon",
+      "source": "https://www.pexels.com/video/37540014/",
+      "tag": "market"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/34499603/14618078_540_960_30fps.mp4",
+      "title": "Streets of Chefchaouen, Morocco",
+      "credit": "Earth Photart",
+      "source": "https://www.pexels.com/video/34499603/",
+      "tag": "market"
+    },
+    {
+      "src": "https://videos.pexels.com/video-files/20151149/20151149-sd_540_960_30fps.mp4",
+      "title": "Surfing",
+      "credit": "Neromanova",
+      "source": "https://www.pexels.com/video/20151149/",
+      "tag": "surf"
+    }
+  ]
+}

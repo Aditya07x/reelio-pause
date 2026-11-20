@@ -78,7 +78,7 @@ describe("individual factors", () => {
   });
 
   it("lingering on the current reel pulls the skip-rate factor down", () => {
-    // Half of the last 8 reels were fast swipes: right at full weight.
+    // Half of these reels were fast swipes: right at full weight.
     const base = {
       sessionMs: 10 * MIN,
       dwellsMs: [800, 4000, 800, 4000, 800, 4000, 800, 4000],

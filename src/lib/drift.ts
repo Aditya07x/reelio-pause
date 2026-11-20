@@ -29,7 +29,7 @@ export const COOLDOWN_MS = 5 * 60_000;
 /** Typical social media session length, used only as a reference in copy (Ahmed et al. 2026). */
 export const TYPICAL_SESSION_SEC = 94;
 
-const SWITCH_WINDOW = 8;
+const SWITCH_WINDOW = 10;
 const PASSIVE_WINDOW = 10;
 const CONFIDENT_AFTER = 5;
 

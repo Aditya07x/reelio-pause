@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 export interface Clip {
   src: string;
   poster?: string | undefined;
+  /** Short description, used as the reel caption. */
+  title?: string | undefined;
+  /** Creator credit, shown on the reel. */
+  credit?: string | undefined;
+  /** Link to the original on the stock site. */
+  source?: string | undefined;
+  tag?: string | undefined;
 }
 
 /** Deterministic shuffle so the feed order is stable between reloads but not alphabetical. */

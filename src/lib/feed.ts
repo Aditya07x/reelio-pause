@@ -95,19 +95,25 @@ export interface ReelContent {
 
 export function reelFor(id: number, clips: Clip[] = []): ReelContent {
   const h = hash(id);
+  const clip = clipFor(id, clips);
   const c = (k: number) => pick(REEL_COLORS, (h >>> (k * 3)) + k * 3);
   const handle = pick(HANDLES, h >>> 4);
   return {
     id,
     handle,
-    caption: pick(CAPTIONS, (h >>> 6) + id),
-    tags: [pick(TAGS, h >>> 9), pick(TAGS, (h >>> 12) + 3)].filter((t, i, a) => a.indexOf(t) === i),
-    audio: `original sound · ${pick(HANDLES, h >>> 11)}`,
+    caption: clip?.title ? clip.title.toLowerCase() : pick(CAPTIONS, (h >>> 6) + id),
+    tags: [
+      clip?.tag ? `#${clip.tag.replace(/\s+/g, "")}` : pick(TAGS, h >>> 9),
+      pick(TAGS, (h >>> 12) + 3),
+    ].filter((t, i, a) => a.indexOf(t) === i),
+    audio: clip?.credit
+      ? `video by ${clip.credit} · Pexels`
+      : `original sound · ${pick(HANDLES, h >>> 11)}`,
     likes: compact(200 + (h % 48000)),
     comments: compact(10 + ((h >>> 5) % 2400)),
     shares: compact(5 + ((h >>> 8) % 900)),
     colors: [c(0), c(1), c(2), c(3)],
     shape: pick(SHAPES, h >>> 3),
-    clip: clipFor(id, clips),
+    clip,
   };
 }
