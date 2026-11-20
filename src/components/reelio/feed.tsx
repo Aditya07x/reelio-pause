@@ -10,7 +10,7 @@ const SWIPE_PX = 56;
 const WHEEL_LOCK_MS = 650;
 
 export function Feed({ session }: { session: ReelioSession }) {
-  const { state, step, keepGoing, close, demoSpeed } = session;
+  const { state, step, keepGoing, close, demoSpeed, engage } = session;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startY = useRef<number | null>(null);
@@ -101,7 +101,12 @@ export function Feed({ session }: { session: ReelioSession }) {
             aria-hidden={rel !== 0}
           >
             {item.kind === "reel" ? (
-              <ReelCard reel={reelFor(item.id, clips)} active={rel === 0} />
+              <ReelCard
+                reel={reelFor(item.id, clips)}
+                active={rel === 0}
+                liked={state.likedIds.includes(item.id)}
+                onEngage={rel === 0 ? engage : undefined}
+              />
             ) : (
               <PauseCard
                 pause={item}

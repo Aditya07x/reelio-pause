@@ -6,13 +6,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
-  BASELINE_MIN,
   CHECK_IN_EVERY,
   DRIFT_THRESHOLD,
+  ENTRIES,
+  MIN_FEED_MS,
   STREAK_TO_INTERRUPT,
   driftMood,
   shouldCheckIn,
 } from "@/lib/drift";
+import { FACTORS, type Strength } from "@/lib/evidence";
 import { reelsSeen } from "@/lib/session";
 import type { ReelioSession } from "@/hooks/use-reelio-session";
 
@@ -36,6 +38,12 @@ const MOOD = {
     text: "This looks like doomscrolling.",
   },
 } as const;
+
+const STRENGTH: Record<Strength, string> = {
+  strong: "strong evidence",
+  moderate: "moderate evidence",
+  weak: "weak evidence",
+};
 
 function fmtTime(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -92,6 +100,8 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
     setSimulateNight,
     close,
     exportLog,
+    setEntry,
+    setDailyMinBefore,
   } = session;
   const [open, setOpen] = useState(false);
 
@@ -143,7 +153,8 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
         <div className="mt-4 rounded-2xl bg-foreground/[0.035] p-3.5">
           <div className="flex items-center justify-between text-[12px]">
             <span className="text-muted-foreground">
-              Above {DRIFT_THRESHOLD}, {STREAK_TO_INTERRUPT} cards in a row
+              {DRIFT_THRESHOLD}+ for {STREAK_TO_INTERRUPT} reels in a row, after{" "}
+              {MIN_FEED_MS / 60000} min
             </span>
             <span className="font-semibold tabular-nums">
               {state.streak}/{STREAK_TO_INTERRUPT}
@@ -185,8 +196,14 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
                 />
               </div>
               <p className="mt-1 text-[12px] text-muted-foreground">
+                <span className="text-[10px] uppercase tracking-[0.08em] opacity-75">
+                  {STRENGTH[FACTORS.find((f) => f.key === p.key)!.strength]}
+                </span>
+                {" · "}
                 {p.detail}
-                {p.key === "dwell" && live && ` · this one ${(currentDwellMs / 1000).toFixed(1)} s`}
+                {p.key === "switching" &&
+                  live &&
+                  ` · this one ${(currentDwellMs / 1000).toFixed(1)} s`}
               </p>
             </li>
           ))}
@@ -196,13 +213,59 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
           {[
             ["Session", fmtTime(state.sessionMs)],
             ["Reels", String(reelsSeen(state))],
-            ["Usual", `${BASELINE_MIN}:00`],
+            [
+              "Liked",
+              String(state.engaged.filter(Boolean).length + (state.currentEngaged ? 1 : 0)),
+            ],
           ].map(([k, v]) => (
             <div key={k} className="rounded-2xl bg-foreground/[0.035] py-2.5">
               <div className="font-soft text-[18px] tabular-nums">{v}</div>
               <div className="text-[11px] text-muted-foreground">{k}</div>
             </div>
           ))}
+        </div>
+
+        <div className="mt-5 border-t border-foreground/8 pt-4">
+          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Session context
+          </p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            A phone reads these passively. Here you set them to see how the score reacts.
+          </p>
+          <label className="mt-3 block text-[13px]">
+            How this session started
+            <select
+              className="mt-1.5 w-full rounded-xl border border-foreground/10 bg-card px-3 py-2 text-[13px]"
+              value={state.entry}
+              onChange={(e) => setEntry(e.target.value as (typeof ENTRIES)[number]["key"])}
+            >
+              {ENTRIES.map((e) => (
+                <option key={e.key} value={e.key}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 text-[13px]">
+            Short video earlier today
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+              {[0, 30, 60, 90].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDailyMinBefore(m)}
+                  className={cn(
+                    "rounded-xl py-1.5 text-[12px] tabular-nums transition-colors",
+                    Math.round(state.dailyMinBefore) === m
+                      ? "bg-foreground text-background"
+                      : "bg-foreground/[0.05] hover:bg-foreground/10",
+                  )}
+                >
+                  {m} min
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 space-y-3 border-t border-foreground/8 pt-4">
@@ -221,15 +284,15 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
           </label>
           <label className="flex cursor-pointer items-center justify-between gap-3 text-[14px]">
             <span>
-              Pretend it's 1 am
+              Pretend it's 11 pm
               <span className="block text-[12px] text-muted-foreground">
-                Try the late-night signal
+                Try the night signal (9 pm – 7 am)
               </span>
             </span>
             <Switch
               checked={simulateNight}
               onCheckedChange={setSimulateNight}
-              aria-label="Pretend it's 1 am"
+              aria-label="Pretend it's 11 pm"
             />
           </label>
         </div>
@@ -253,10 +316,10 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
           )}
         </div>
         <Link
-          to="/replay"
-          className="mt-3 block text-[12px] font-medium text-foreground underline underline-offset-2 lg:hidden"
+          to="/assumptions"
+          className="mt-3 block text-[12px] font-medium text-foreground underline underline-offset-2"
         >
-          Replay 56 real sessions →
+          What it assumes, and the research behind each factor →
         </Link>
         {state.events.length > 0 && (
           <button

@@ -10,43 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ReplayRouteImport } from './routes/replay'
+import { Route as AssumptionsRouteImport } from './routes/assumptions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReplayRoute = ReplayRouteImport.update({
-  id: '/replay',
-  path: '/replay',
+const AssumptionsRoute = AssumptionsRouteImport.update({
+  id: '/assumptions',
+  path: '/assumptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/replay': typeof ReplayRoute
+  '/assumptions': typeof AssumptionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/replay': typeof ReplayRoute
+  '/assumptions': typeof AssumptionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/replay': typeof ReplayRoute
+  '/assumptions': typeof AssumptionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/replay'
+  fullPaths: '/' | '/assumptions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/replay'
-  id: '__root__' | '/' | '/replay'
+  to: '/' | '/assumptions'
+  id: '__root__' | '/' | '/assumptions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ReplayRoute: typeof ReplayRoute
+  AssumptionsRoute: typeof AssumptionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +58,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/replay': {
-      id: '/replay'
-      path: '/replay'
-      fullPath: '/replay'
-      preLoaderRoute: typeof ReplayRouteImport
+    '/assumptions': {
+      id: '/assumptions'
+      path: '/assumptions'
+      fullPath: '/assumptions'
+      preLoaderRoute: typeof AssumptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ReplayRoute: ReplayRoute,
+  AssumptionsRoute: AssumptionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

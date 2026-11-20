@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { BASELINE_MIN } from "@/lib/drift";
+import { TYPICAL_SESSION_SEC } from "@/lib/drift";
 import type { CheckInAnswer, SessionState } from "@/lib/session";
 
 export function EndScreen({
@@ -24,7 +24,9 @@ export function EndScreen({
           {minutes} min, {reels} reels
         </h2>
         <p className="mt-3 text-[14px] text-muted-foreground animate-rise [animation-delay:200ms]">
-          {minutes <= BASELINE_MIN ? `Within your usual ${BASELINE_MIN} min.` : `Your usual is ${BASELINE_MIN} min.`}
+          {state.pauseCount > 0
+            ? `Reelio paused you ${state.pauseCount === 1 ? "once" : `${state.pauseCount} times`}.`
+            : `A typical social media session is about ${Math.round((TYPICAL_SESSION_SEC / 60) * 10) / 10} min.`}
         </p>
       </div>
 
@@ -34,7 +36,9 @@ export function EndScreen({
             <p className="py-3 font-soft text-[20px] font-light italic">Noted. Thank you.</p>
           ) : (
             <>
-              <p className="font-soft text-[22px] font-light leading-tight">Was that time well spent?</p>
+              <p className="font-soft text-[22px] font-light leading-tight">
+                Was that time well spent?
+              </p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Button variant="whisper" size="pill" onClick={() => onAnswer("yes")}>
                   Yes
@@ -48,7 +52,12 @@ export function EndScreen({
         </div>
       )}
 
-      <Button variant="quiet" size="pill" onClick={onReopen} className="animate-rise [animation-delay:450ms]">
+      <Button
+        variant="quiet"
+        size="pill"
+        onClick={onReopen}
+        className="animate-rise [animation-delay:450ms]"
+      >
         Open the feed again
       </Button>
     </div>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { computeDrift, DEMO_SPEED, IDLE_MS } from "@/lib/drift";
+import { computeDrift, DEMO_SPEED, IDLE_MS, type EntryContext } from "@/lib/drift";
 import { canStep, createSession, sessionReducer, type CheckInAnswer } from "@/lib/session";
 
-const LATE_NIGHT_HOUR = 1;
+const LATE_NIGHT_HOUR = 23;
 
 export function useReelioSession() {
   const [state, dispatch] = useReducer(sessionReducer, undefined, () => createSession(1));
@@ -81,6 +81,19 @@ export function useReelioSession() {
     resetDwell();
   }, []);
   const answer = useCallback((a: CheckInAnswer) => dispatch({ type: "answer", answer: a }), []);
+  /** Like / save / share on the reel on screen: active use, which lowers the passive-watching factor. */
+  const engage = useCallback((id: number) => {
+    markActive();
+    dispatch({ type: "engage", id });
+  }, []);
+  const setEntry = useCallback(
+    (entry: EntryContext) => dispatch({ type: "setContext", entry }),
+    [],
+  );
+  const setDailyMinBefore = useCallback(
+    (dailyMinBefore: number) => dispatch({ type: "setContext", dailyMinBefore }),
+    [],
+  );
 
   const onReel = state.phase === "feed" && state.items[state.index]?.kind === "reel";
   const drift = useMemo(
@@ -88,13 +101,25 @@ export function useReelioSession() {
       computeDrift({
         sessionMs: state.sessionMs,
         dwellsMs: state.dwells,
+        engaged: state.engaged,
         hour,
+        entry: state.entry,
+        dailyMinBefore: state.dailyMinBefore,
         currentDwellMs: onReel ? currentDwellMs : 0,
       }),
-    [state.sessionMs, state.dwells, hour, onReel, currentDwellMs],
+    [
+      state.sessionMs,
+      state.dwells,
+      state.engaged,
+      state.entry,
+      state.dailyMinBefore,
+      hour,
+      onReel,
+      currentDwellMs,
+    ],
   );
 
-  /** Download this session's per-card events as JSON (the same rows Replay mode reads). */
+  /** Download this session's per-card events as JSON (the same fields the Android app logs per reel). */
   const exportLog = useCallback(() => {
     const s = stateRef.current;
     const blob = new Blob(
@@ -137,6 +162,9 @@ export function useReelioSession() {
     close,
     start,
     answer,
+    engage,
+    setEntry,
+    setDailyMinBefore,
     exportLog,
   };
 }

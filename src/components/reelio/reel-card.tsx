@@ -96,28 +96,53 @@ function ClipVideo({
   );
 }
 
-function Action({ icon: Icon, label }: { icon: typeof Heart; label: string }) {
+function Action({
+  icon: Icon,
+  label,
+  on = false,
+  onPress,
+}: {
+  icon: typeof Heart;
+  label: string;
+  on?: boolean;
+  onPress?: (() => void) | undefined;
+}) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="grid size-11 place-items-center rounded-full glass text-foreground shadow-float">
-        <Icon className="size-[19px]" strokeWidth={1.7} />
+    <button
+      type="button"
+      onClick={onPress}
+      aria-pressed={on}
+      aria-label={label}
+      className="flex flex-col items-center gap-1 no-tap-highlight"
+    >
+      <span
+        className={`grid size-11 place-items-center rounded-full glass shadow-float transition-transform active:scale-90 ${on ? "text-deep" : "text-foreground"}`}
+      >
+        <Icon className="size-[19px]" strokeWidth={1.7} fill={on ? "currentColor" : "none"} />
       </span>
       <span className="text-[11px] font-medium opacity-85">{label}</span>
-    </div>
+    </button>
   );
 }
 
 export const ReelCard = memo(function ReelCard({
   reel,
   active = false,
+  liked = false,
+  onEngage,
 }: {
   reel: ReelContent;
   active?: boolean;
+  liked?: boolean;
+  onEngage?: ((id: number) => void) | undefined;
 }) {
   const video = Boolean(reel.clip);
+  const engage = onEngage ? () => onEngage(reel.id) : undefined;
   return (
     <div
       className={`relative h-full w-full select-none ${video ? "text-white" : "text-foreground"}`}
+
+      onDoubleClick={engage}
     >
       <Backdrop reel={reel} />
       {reel.clip && (
@@ -137,10 +162,10 @@ export const ReelCard = memo(function ReelCard({
       </div>
 
       <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4">
-        <Action icon={Heart} label={reel.likes} />
-        <Action icon={MessageCircle} label={reel.comments} />
-        <Action icon={Bookmark} label="Save" />
-        <Action icon={Send} label={reel.shares} />
+        <Action icon={Heart} label={reel.likes} on={liked} onPress={engage} />
+        <Action icon={MessageCircle} label={reel.comments} onPress={engage} />
+        <Action icon={Bookmark} label="Save" onPress={engage} />
+        <Action icon={Send} label={reel.shares} onPress={engage} />
       </div>
 
       <div className="absolute inset-x-0 bottom-10 pl-5 pr-20">

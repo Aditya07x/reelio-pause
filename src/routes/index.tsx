@@ -41,13 +41,14 @@ function Index() {
           <ul className="mt-10 space-y-3 text-[13px] text-muted-foreground">
             <li>Swipe, scroll or press ↑ ↓ to move through the feed.</li>
             <li>Tap the bar at the bottom of the phone to leave.</li>
+            <li>Like or save a reel by tapping the heart or bookmark.</li>
             <li>Turn on demo speed and swipe quickly to meet a pause sooner.</li>
           </ul>
           <Link
-            to="/replay"
+            to="/assumptions"
             className="mt-8 inline-flex rounded-full bg-card px-4 py-2 text-[13px] font-medium shadow-soft hover:bg-card/80"
           >
-            Replay 56 real sessions →
+            What it assumes, and why →
           </Link>
         </aside>
 

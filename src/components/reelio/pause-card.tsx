@@ -16,7 +16,12 @@ export function PauseCard({
   onClose: () => void;
   onKeepGoing: () => void;
 }) {
-  const { headline, sub, note } = formatInterruption(pause.sessionMs, pause.reels, undefined, demo);
+  const { headline, sub, note } = formatInterruption(
+    pause.sessionMs,
+    pause.reels,
+    pause.entry,
+    demo,
+  );
   const [remaining, setRemaining] = useState(pause.waitMs);
 
   useEffect(() => {

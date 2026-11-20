@@ -4,6 +4,7 @@ import {
   nextStreak,
   shouldCheckIn,
   shouldInterrupt,
+  type EntryContext,
 } from "./drift";
 
 export type ReelItem = { kind: "reel"; id: number };
@@ -13,17 +14,19 @@ export type PauseItem = {
   waitMs: number;
   sessionMs: number;
   reels: number;
+  entry: EntryContext;
 };
 export type FeedItem = ReelItem | PauseItem;
 
 export type CheckInAnswer = "yes" | "no";
 
-/** One row per card the user leaves. Same shape the Replay mode and the Android CSV map onto. */
+/** One row per card the user leaves. Same fields the Android app logs per reel. */
 export interface ReelEvent {
   index: number;
   itemId: number;
   dwellMs: number;
   direction: "down" | "up";
+  engaged: boolean;
   sessionMs: number;
   hour: number | null;
   score: number;
@@ -38,8 +41,18 @@ export interface SessionState {
   nextReelId: number;
   sessionMs: number;
   dwells: number[];
+  /** Parallel to dwells: liked/saved/shared/commented on that reel. */
+  engaged: boolean[];
+  /** Engagement on the reel currently on screen (moved into `engaged` when it is left). */
+  currentEngaged: boolean;
+  likedIds: number[];
   events: ReelEvent[];
   streak: number;
+  lastPauseAtMs: number | null;
+  /** How this session started: observed passively on a phone, chosen in the demo panel. */
+  entry: EntryContext;
+  /** Minutes already spent in short-video feeds today, before this session. */
+  dailyMinBefore: number;
   keptGoing: boolean;
   pauseCount: number;
   summary: { ms: number; reels: number } | null;
@@ -51,6 +64,8 @@ export interface SessionState {
 export type SessionAction =
   | { type: "tick"; dtMs: number; speed: number }
   | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null; at?: number }
+  | { type: "engage"; id: number }
+  | { type: "setContext"; entry?: EntryContext; dailyMinBefore?: number }
   | { type: "keepGoing" }
   | { type: "close" }
   | { type: "start" }
@@ -63,7 +78,11 @@ function withLookahead(items: FeedItem[], index: number, nextReelId: number) {
   return { items: out, nextReelId: id };
 }
 
-export function createSession(sessionNumber = 1, firstReelId = 0): SessionState {
+export function createSession(
+  sessionNumber = 1,
+  firstReelId = 0,
+  context: { entry?: EntryContext; dailyMinBefore?: number } = {},
+): SessionState {
   const { items, nextReelId } = withLookahead([], 0, firstReelId);
   return {
     phase: "feed",
@@ -73,8 +92,14 @@ export function createSession(sessionNumber = 1, firstReelId = 0): SessionState 
     nextReelId,
     sessionMs: 0,
     dwells: [],
+    engaged: [],
+    currentEngaged: false,
+    likedIds: [],
     events: [],
     streak: 0,
+    lastPauseAtMs: null,
+    entry: context.entry ?? "home",
+    dailyMinBefore: context.dailyMinBefore ?? 0,
     keptGoing: false,
     pauseCount: 0,
     summary: null,
@@ -108,21 +133,32 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
     case "step": {
       if (!canStep(s, a.dir)) return s;
       const dwells = [...s.dwells, a.dwellMs];
-      const { score } = computeDrift({ sessionMs: s.sessionMs, dwellsMs: dwells, hour: a.hour });
+      const engaged = [...s.engaged, s.currentEngaged];
+      const { score } = computeDrift({
+        sessionMs: s.sessionMs,
+        dwellsMs: dwells,
+        engaged,
+        hour: a.hour,
+        entry: s.entry,
+        dailyMinBefore: s.dailyMinBefore,
+      });
       let streak = nextStreak(s.streak, score);
       let items = s.items;
       let pauseCount = s.pauseCount;
-      if (a.dir > 0 && shouldInterrupt(streak)) {
+      let lastPauseAtMs = s.lastPauseAtMs;
+      if (a.dir > 0 && shouldInterrupt(streak, s.sessionMs, s.lastPauseAtMs)) {
         const pause: PauseItem = {
           kind: "pause",
           id: `pause-${s.sessionNumber}-${pauseCount}`,
           waitMs: interruptionWaitMs(s.keptGoing),
           sessionMs: s.sessionMs,
           reels: dwells.length,
+          entry: s.entry,
         };
         items = [...items.slice(0, s.index + 1), pause, ...items.slice(s.index + 1)];
         streak = 0;
         pauseCount += 1;
+        lastPauseAtMs = s.sessionMs;
       }
       const left = currentItem(s);
       const event: ReelEvent = {
@@ -130,6 +166,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         itemId: left?.kind === "reel" ? left.id : -1,
         dwellMs: Math.round(a.dwellMs),
         direction: a.dir > 0 ? "down" : "up",
+        engaged: s.currentEngaged,
         sessionMs: Math.round(s.sessionMs),
         hour: a.hour,
         score,
@@ -137,8 +174,36 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       };
       const index = s.index + a.dir;
       const look = withLookahead(items, index, s.nextReelId);
-      return { ...s, ...look, index, dwells, events: [...s.events, event], streak, pauseCount };
+      return {
+        ...s,
+        ...look,
+        index,
+        dwells,
+        engaged,
+        currentEngaged: false,
+        events: [...s.events, event],
+        streak,
+        pauseCount,
+        lastPauseAtMs,
+      };
     }
+
+    case "engage": {
+      if (s.phase !== "feed" || currentItem(s)?.kind !== "reel") return s;
+      const liked = s.likedIds.includes(a.id);
+      return {
+        ...s,
+        currentEngaged: true,
+        likedIds: liked ? s.likedIds : [...s.likedIds, a.id],
+      };
+    }
+
+    case "setContext":
+      return {
+        ...s,
+        entry: a.entry ?? s.entry,
+        dailyMinBefore: a.dailyMinBefore ?? s.dailyMinBefore,
+      };
 
     case "keepGoing": {
       if (s.phase !== "feed" || currentItem(s)?.kind !== "pause") return s;
@@ -158,7 +223,11 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       };
 
     case "start": {
-      const next = createSession(s.sessionNumber + 1, s.nextReelId);
+      // The next session inherits the entry choice, and today's total grows by the session just ended.
+      const next = createSession(s.sessionNumber + 1, s.nextReelId, {
+        entry: s.entry,
+        dailyMinBefore: s.dailyMinBefore + s.sessionMs / 60000,
+      });
       return { ...next, history: s.history };
     }
 

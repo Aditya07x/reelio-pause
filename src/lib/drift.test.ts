@@ -1,150 +1,272 @@
 import { describe, expect, it } from "vitest";
-import { computeDrift, formatInterruption, isFastSwipe, shouldCheckIn } from "./drift";
+import {
+  computeDrift,
+  COOLDOWN_MS,
+  formatInterruption,
+  intentFactor,
+  isFastSwipe,
+  isNight,
+  MIN_FEED_MS,
+  shouldCheckIn,
+  type EntryContext,
+} from "./drift";
+import { FACTORS, WEIGHT_TOTAL } from "./evidence";
 import {
   createSession,
-  currentItem as maybeCurrent,
+  currentItem,
   sessionReducer,
   type PauseItem,
   type SessionState,
 } from "./session";
 
-const currentItem = (s: SessionState) => maybeCurrent(s)!;
-const waitOf = (s: SessionState) => (currentItem(s) as PauseItem).waitMs;
-
-const MIN = 60000;
+const MIN = 60_000;
 const part = (r: ReturnType<typeof computeDrift>, key: string) =>
   r.parts.find((p) => p.key === key)!.points;
 
-describe("drift score", () => {
-  it("compares session length with a 9-minute baseline", () => {
-    const atBaseline = computeDrift({ sessionMs: 9 * MIN, dwellsMs: [], hour: 14 });
-    const twice = computeDrift({ sessionMs: 18 * MIN, dwellsMs: [], hour: 14 });
-    expect(part(atBaseline, "session")).toBeCloseTo(17.5);
-    expect(part(twice, "session")).toBe(35);
+describe("evidence and weights", () => {
+  it("weights come from the evidence table and sum to 100", () => {
+    expect(WEIGHT_TOTAL).toBe(100);
+    const r = computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14 });
+    expect(r.parts.map((p) => p.max)).toEqual(FACTORS.map((f) => f.weight));
   });
 
-  it("treats swipes under 2 seconds as fast", () => {
+  it("drift from purpose outweighs time in the feed (intent β 0.76 vs duration β 0.18)", () => {
+    const intent = FACTORS.find((f) => f.key === "intent")!.weight;
+    const time = FACTORS.find((f) => f.key === "time")!.weight;
+    expect(intent).toBeGreaterThan(time);
+  });
+});
+
+describe("individual factors", () => {
+  it("a purposeful entry only counts as drift after a minute in the feed", () => {
+    expect(intentFactor("dm", 0.5)).toBe(0);
+    expect(intentFactor("dm", 2)).toBeCloseTo(0.5);
+    expect(intentFactor("dm", 5)).toBe(1);
+    expect(intentFactor("home", 0)).toBe(0.6);
+  });
+
+  it("night is 9 pm to 7 am", () => {
+    expect([21, 23, 0, 6].every((h) => isNight(h))).toBe(true);
+    expect([7, 12, 20].some((h) => isNight(h))).toBe(false);
+  });
+
+  it("swipes under 2 seconds are fast", () => {
     expect(isFastSwipe(1999)).toBe(true);
     expect(isFastSwipe(2000)).toBe(false);
   });
 
-  it("adds late-night points after 11pm but not in the afternoon", () => {
-    expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 1 }), "night")).toBe(15);
-    expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14 }), "night")).toBe(0);
+  it("liking reels lowers the passive-watching factor", () => {
+    const dwellsMs = Array(10).fill(4000);
+    const passive = computeDrift({
+      sessionMs: 5 * MIN,
+      dwellsMs,
+      engaged: Array(10).fill(false),
+      hour: 14,
+    });
+    const active = computeDrift({
+      sessionMs: 5 * MIN,
+      dwellsMs,
+      engaged: Array(10).fill(true),
+      hour: 14,
+    });
+    expect(part(passive, "passive")).toBe(15);
+    expect(part(active, "passive")).toBe(0);
   });
 
-  it("lingering on the current card pulls the score down", () => {
-    const skimming = { sessionMs: 30 * MIN, dwellsMs: Array(8).fill(800), hour: 14 };
-    const before = computeDrift(skimming).score;
-    const lingering = computeDrift({ ...skimming, currentDwellMs: 90_000 }).score;
-    expect(lingering).toBeLessThan(before);
+  it("lingering on the current reel pulls the switching factor down", () => {
+    // Half of the last 8 reels were fast swipes: right at full weight.
+    const base = {
+      sessionMs: 10 * MIN,
+      dwellsMs: [800, 4000, 800, 4000, 800, 4000, 800, 4000],
+      hour: 14,
+    };
+    expect(part(computeDrift({ ...base, currentDwellMs: 90_000 }), "switching")).toBeLessThan(
+      part(computeDrift(base), "switching"),
+    );
   });
 
-  it("a card on screen for under 2 s does not count yet", () => {
-    const base = { sessionMs: 30 * MIN, dwellsMs: Array(8).fill(800), hour: 14 };
-    expect(computeDrift({ ...base, currentDwellMs: 1500 }).score).toBe(computeDrift(base).score);
+  it("time in the feed is zero for the first 2 minutes (typical session ~94 s)", () => {
+    expect(part(computeDrift({ sessionMs: 1.5 * MIN, dwellsMs: [], hour: 14 }), "time")).toBe(0);
+    expect(part(computeDrift({ sessionMs: 20 * MIN, dwellsMs: [], hour: 14 }), "time")).toBe(15);
   });
 
-  it("one long reel does not hide skimming (median, not mean)", () => {
-    const dwellsMs = [800, 900, 700, 60_000, 800, 900, 700, 800];
-    const v2 = computeDrift({ sessionMs: 0, dwellsMs, hour: 14 });
-    const v1 = computeDrift({ sessionMs: 0, dwellsMs, hour: 14, dwellStat: "mean" });
-    expect(part(v2, "dwell")).toBeGreaterThan(part(v1, "dwell"));
-  });
-
-  it("stays between 0 and 100", () => {
-    const r = computeDrift({ sessionMs: 120 * MIN, dwellsMs: Array(10).fill(300), hour: 2 });
-    expect(r.score).toBe(100);
+  it("earlier short-video time today adds up to its full weight at 90 min", () => {
+    expect(
+      part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14, dailyMinBefore: 45 }), "load"),
+    ).toBe(5);
+    expect(
+      part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14, dailyMinBefore: 200 }), "load"),
+    ).toBe(10);
   });
 });
 
-function driftingSession(overrides: Partial<SessionState> = {}): SessionState {
-  // 30 min in, already 8 fast swipes: every further fast swipe scores above 70.
-  return { ...createSession(), sessionMs: 30 * MIN, dwells: Array(8).fill(800), ...overrides };
+// ---------------------------------------------------------------------------
+// Scenario evals: behaviour patterns described in the literature, run through
+// the real reducer. Each asserts what the assumptions say should happen.
+// ---------------------------------------------------------------------------
+
+interface Persona {
+  entry: EntryContext;
+  hour: number;
+  dailyMinBefore?: number;
+  /** Time on each reel, by reel number. */
+  dwell: (i: number) => number;
+  /** Does the person like/save reel i? */
+  engages?: (i: number) => boolean;
+  minutes: number;
+  /** What to do at a pause. */
+  onPause?: "keepGoing" | "stop";
 }
-const fast = (s: SessionState) =>
-  sessionReducer(s, { type: "step", dir: 1, dwellMs: 800, hour: 14 });
 
-describe("interruptions", () => {
-  it("does not interrupt after 4 drifting cards in a row", () => {
-    let s = driftingSession();
-    for (let i = 0; i < 4; i++) s = fast(s);
-    expect(currentItem(s).kind).toBe("reel");
+function run(p: Persona) {
+  let s: SessionState = createSession(1, 0, {
+    entry: p.entry,
+    dailyMinBefore: p.dailyMinBefore ?? 0,
+  });
+  const pausesAtMin: number[] = [];
+  for (let i = 0; s.sessionMs < p.minutes * MIN && i < 5000; i++) {
+    const d = p.dwell(i);
+    s = sessionReducer(s, { type: "tick", dtMs: d, speed: 1 });
+    const cur = currentItem(s);
+    if (p.engages?.(i) && cur?.kind === "reel")
+      s = sessionReducer(s, { type: "engage", id: cur.id });
+    s = sessionReducer(s, { type: "step", dir: 1, dwellMs: d, hour: p.hour });
+    if (currentItem(s)?.kind === "pause") {
+      pausesAtMin.push((currentItem(s) as PauseItem).sessionMs / MIN);
+      if ((p.onPause ?? "stop") === "stop") break;
+      s = sessionReducer(s, { type: "keepGoing" });
+    }
+  }
+  return pausesAtMin;
+}
+
+const fastBored = (i: number) => (i % 3 === 0 ? 4000 : 1200); // two of three reels rejected in ~1 s
+
+describe("scenario evals", () => {
+  it("quick checker (brief, repeated checks): never interrupted", () => {
+    expect(run({ entry: "home", hour: 14, dwell: () => 1200, minutes: 2.5 })).toEqual([]);
   });
 
-  it("interrupts after 5 drifting cards in a row", () => {
-    let s = driftingSession();
-    for (let i = 0; i < 5; i++) s = fast(s);
-    expect(currentItem(s).kind).toBe("pause");
+  it("engaged viewer watching reels through and liking some: not interrupted in 30 minutes", () => {
+    expect(
+      run({
+        entry: "home",
+        hour: 14,
+        dwell: () => 14_000,
+        engages: (i) => i % 3 === 0,
+        minutes: 30,
+      }),
+    ).toEqual([]);
   });
 
-  it("a calm card resets the streak", () => {
-    let s = driftingSession();
-    for (let i = 0; i < 4; i++) s = fast(s);
-    s = sessionReducer({ ...s, sessionMs: 0 }, { type: "step", dir: 1, dwellMs: 9000, hour: 14 });
-    expect(s.streak).toBe(0);
+  it("engaged viewer late at night: still not interrupted (night alone is not enough)", () => {
+    expect(
+      run({
+        entry: "home",
+        hour: 23,
+        dwell: () => 14_000,
+        engages: (i) => i % 3 === 0,
+        minutes: 30,
+      }),
+    ).toEqual([]);
   });
 
-  it("first pause can be dismissed at once; after Keep going the next one waits 5 seconds", () => {
-    let s = driftingSession();
-    for (let i = 0; i < 5; i++) s = fast(s);
-    expect(currentItem(s).kind).toBe("pause");
-    expect(waitOf(s)).toBe(0);
-
-    s = sessionReducer(s, { type: "keepGoing" });
-    expect(currentItem(s).kind).toBe("reel");
-    for (let i = 0; i < 5; i++) s = fast(s);
-    expect(currentItem(s).kind).toBe("pause");
-    expect(waitOf(s)).toBe(5000);
+  it("came to reply to a message, slid into fast passive scrolling: paused soon after the 3-minute floor", () => {
+    const [first] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
+    expect(first).toBeGreaterThanOrEqual(MIN_FEED_MS / MIN);
+    expect(first).toBeLessThan(5);
   });
 
-  it("swiping is blocked while a pause is showing", () => {
-    let s = driftingSession();
-    for (let i = 0; i < 5; i++) s = fast(s);
-    expect(fast(s)).toBe(s);
+  it("opened straight into the feed and switching fast, daytime: paused, but later than intent drift", () => {
+    const [drift] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
+    const [home] = run({ entry: "home", hour: 14, dwell: fastBored, minutes: 30 });
+    expect(home).toBeGreaterThan(drift!);
+    expect(home).toBeLessThan(15);
   });
 
-  it("formats the pause message", () => {
-    expect(formatInterruption(34 * MIN, 210)).toEqual({
-      headline: "34 min · ~210 reels.",
-      sub: "Your usual is 9 min.",
-      note: null,
+  it("the same pattern at night, after an hour of scrolling today, pauses at the 3-minute floor", () => {
+    const [first] = run({
+      entry: "home",
+      hour: 23,
+      dailyMinBefore: 60,
+      dwell: fastBored,
+      minutes: 30,
     });
+    expect(first).toBeCloseTo(MIN_FEED_MS / MIN, 0);
+  });
+
+  it("after Keep going, the next pause waits for the cooldown and asks for a 5-second wait", () => {
+    let s: SessionState = createSession(1, 0, { entry: "dm" });
+    const waits: number[] = [];
+    const at: number[] = [];
+    for (let i = 0; s.sessionMs < 30 * MIN; i++) {
+      s = sessionReducer(s, { type: "tick", dtMs: fastBored(i), speed: 1 });
+      s = sessionReducer(s, { type: "step", dir: 1, dwellMs: fastBored(i), hour: 14 });
+      const cur = currentItem(s);
+      if (cur?.kind === "pause") {
+        waits.push(cur.waitMs);
+        at.push(cur.sessionMs);
+        s = sessionReducer(s, { type: "keepGoing" });
+      }
+    }
+    expect(waits.slice(0, 2)).toEqual([0, 5000]);
+    expect(at[1]! - at[0]!).toBeGreaterThanOrEqual(COOLDOWN_MS);
+  });
+});
+
+describe("pause message", () => {
+  it("reminds the person of the purpose they came with", () => {
+    expect(formatInterruption(12 * MIN, 140, "dm").sub).toBe(
+      "You came here to reply to a message.",
+    );
+  });
+
+  it("asks an open question when there was no visible purpose", () => {
+    expect(formatInterruption(12 * MIN, 140, "home").sub).toMatch(/still what you want/);
   });
 
   it("says when the clock is sped up for the demo", () => {
-    expect(formatInterruption(34 * MIN, 21, 9, true).note).toMatch(/Demo clock/);
-  });
-
-  it("logs one event per card left, with direction", () => {
-    let s = driftingSession();
-    s = fast(s);
-    s = sessionReducer(s, { type: "step", dir: -1, dwellMs: 3000, hour: 14 });
-    expect(s.events).toHaveLength(2);
-    expect(s.events.map((e) => e.direction)).toEqual(["down", "up"]);
+    expect(formatInterruption(34 * MIN, 21, "home", true).note).toMatch(/Demo clock/);
   });
 });
 
-describe("check-in", () => {
-  it("asks 'well spent?' in 1 of every 5 sessions", () => {
-    const asked = Array.from({ length: 10 }, (_, i) => shouldCheckIn(i + 1));
-    expect(asked.filter(Boolean)).toHaveLength(2);
+describe("session flow", () => {
+  it("swiping is blocked while a pause is showing", () => {
+    let s: SessionState = createSession(1, 0, { entry: "dm", dailyMinBefore: 90 });
+    for (let i = 0; i < 400 && currentItem(s)?.kind !== "pause"; i++) {
+      s = sessionReducer(s, { type: "tick", dtMs: 1000, speed: 1 });
+      s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 23 });
+    }
+    expect(currentItem(s)?.kind).toBe("pause");
+    expect(sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 23 })).toBe(s);
   });
 
-  it("asks only after the session ends", () => {
+  it("logs one event per reel left, with direction and engagement", () => {
+    let s = createSession(1);
+    s = sessionReducer(s, { type: "engage", id: 0 });
+    s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 3000, hour: 14 });
+    s = sessionReducer(s, { type: "step", dir: -1, dwellMs: 1000, hour: 14 });
+    expect(s.events.map((e) => [e.direction, e.engaged])).toEqual([
+      ["down", true],
+      ["up", false],
+    ]);
+  });
+
+  it("the next session carries today's running total forward", () => {
+    let s = createSession(1, 0, { dailyMinBefore: 10 });
+    s = sessionReducer(s, { type: "tick", dtMs: 5 * MIN, speed: 1 });
+    s = sessionReducer(s, { type: "close" });
+    s = sessionReducer(s, { type: "start" });
+    expect(s.dailyMinBefore).toBeCloseTo(15);
+  });
+
+  it("asks 'well spent?' in 1 of every 5 sessions, only after the session ends", () => {
+    expect(Array.from({ length: 10 }, (_, i) => shouldCheckIn(i + 1)).filter(Boolean)).toHaveLength(
+      2,
+    );
     let s = createSession(1);
     expect(s.askCheckIn).toBe(false);
     s = sessionReducer(s, { type: "close" });
-    expect(s.phase).toBe("ended");
     expect(s.askCheckIn).toBe(true);
-  });
-});
-
-describe("replay on real sessions", async () => {
-  const { DETECTORS, scorecard } = await import("./replay");
-  it("v2 catches more regretted time than v1 without more false alarms than the timer", () => {
-    const [v2, v1, timer] = DETECTORS.map((d) => scorecard(d));
-    expect(v2!.minutesAfterAlert).toBeGreaterThan(v1!.minutesAfterAlert);
-    expect(v2!.falseAlarms).toBeLessThan(timer!.falseAlarms);
   });
 });
