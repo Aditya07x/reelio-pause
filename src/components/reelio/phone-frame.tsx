@@ -33,6 +33,7 @@ export function PhoneFrame({
   homeLabel,
   scale = 1,
   screen = "bg-card",
+  glow,
 }: {
   clock: string;
   children: ReactNode;
@@ -41,12 +42,20 @@ export function PhoneFrame({
   /** Uniform scale applied to the whole device. */
   scale?: number;
   screen?: string;
+  /** Colour of a soft halo around the device (used when an intervention is on). */
+  glow?: string | undefined;
 }) {
   return (
     <div className="relative shrink-0" style={{ width: PHONE_W * scale, height: PHONE_H * scale }}>
       <div
-        className="absolute left-0 top-0 origin-top-left rounded-[3.4rem] bg-bezel shadow-phone"
-        style={{ width: PHONE_W, height: PHONE_H, padding: BEZEL, transform: `scale(${scale})` }}
+        className="absolute left-0 top-0 origin-top-left rounded-[3.4rem] bg-bezel shadow-phone transition-shadow duration-1000"
+        style={{
+          width: PHONE_W,
+          height: PHONE_H,
+          padding: BEZEL,
+          transform: `scale(${scale})`,
+          ...(glow ? { boxShadow: `0 0 0 4px ${glow}, 0 0 60px 10px ${glow}, 0 40px 80px -30px rgba(45,52,54,0.5)` } : {}),
+        }}
       >
         <div className={`relative h-full w-full overflow-hidden rounded-[2.8rem] ${screen}`}>
           {/* status bar */}

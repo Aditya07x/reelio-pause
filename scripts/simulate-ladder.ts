@@ -21,6 +21,9 @@ const personas: Persona[] = [
   { name: "Opened the app into Reels, skips 2 of 3, daytime", entry: "home", hour: 14, dwell: fastBored },
   { name: "Came to reply to a DM, slid into skipping 2 of 3", entry: "dm", hour: 14, dwell: fastBored },
   { name: "Same, at 11 pm after an hour of Reels earlier", entry: "dm", hour: 23, dailyMinBefore: 60, dwell: fastBored },
+  { name: "Feed-training: likes nearly every reel, ~6 s each, daytime", entry: "home", hour: 14, dwell: () => 6000, engages: (i) => i % 6 !== 5 },
+  { name: "Feed-training at 11 pm in bed, 60 min earlier today", entry: "home", hour: 23, stillInDark: true, dailyMinBefore: 60, dwell: () => 6000, engages: (i) => i % 6 !== 5 },
+  { name: "Like-and-swipe: likes 1 in 2, leaves in ~1.5 s, daytime", entry: "home", hour: 14, dwell: () => 1500, engages: (i) => i % 2 === 0 },
   { name: "Slow passive: watches 6 s each, never likes, daytime", entry: "home", hour: 14, dwell: () => 6000 },
   { name: "Slow passive at 11 pm in bed", entry: "home", hour: 23, stillInDark: true, dwell: () => 6000 },
 ];

@@ -89,6 +89,14 @@ const ZIMMERMANN_2023: Source = {
   label: "Zimmermann & Sobolev 2023, Digital Strategies for Screen Time Reduction (Cyberpsychology, Behavior, and Social Networking)",
   url: "https://pubmed.ncbi.nlm.nih.gov/36577008/",
 };
+const FOLK_TRAINING_2025: Source = {
+  label: "Counting How the Seconds Count: algorithm-user interplay on TikTok (2025): users try to train the algorithm by strategically liking, skipping and sharing",
+  url: "https://arxiv.org/abs/2503.20030",
+};
+const ACTIVE_SV_ATTENTION: Source = {
+  label: "PsyPost summary: frequent liking and commenting on short video linked to lower alerting efficiency",
+  url: "https://www.psypost.org/active-short-video-use-linked-to-altered-attention-and-brain-connectivity/",
+};
 export const IQBAL_2008: Source = {
   label: "Iqbal & Bailey 2008, interruptions at breakpoints reduce frustration (CHI '08)",
   url: "https://doi.org/10.1145/1357054.1357070",
@@ -148,26 +156,29 @@ export const FACTORS: FactorEvidence[] = [
   },
   {
     key: "interaction",
-    label: "No interaction",
+    label: "How you engage",
     weight: 15,
     strength: "moderate",
     measures:
-      "Share of the last 10 reels with no like, save, share, comment, profile visit or hashtag tap: watching without doing anything.",
+      "Two patterns in the last 10 reels. Passive: watching without any like, save, share or comment. Reflexive: liking and leaving within 3 seconds, or liking reel after reel, nearly everything. Occasional likes on reels that were actually watched count as healthy.",
     finding:
-      "Passive social media use and habitual use to pass time were the least meaningful kinds of phone use, with participants describing a loss of autonomy. Passive features (feeds, recommended posts) were regretted more than active ones.",
+      "Passive use to pass time was the least meaningful kind of phone use, and passive feeds were regretted more than active features. But liking is not automatically a good sign: users deliberately like, skip and share to train the recommendation algorithm, and frequent liking and commenting on short video has been linked to weaker attention. So a like counts as engagement only when the reel was watched.",
     threshold:
-      "Starts counting when over half of the last 10 reels had no action; full weight at 90%. Design assumption.",
-    onDevice: "Taps on the like, save, share and comment controls, profile opens and hashtag taps.",
+      "Passive starts when over half of the last 10 had no action (full at 90%). Reflexive starts when 2 of the last 10 were liked and left in under 3 s (full at 5), or at a run of 4 liked reels in a row (full at 8), or when over 60% of the last 10 were liked (full at 90%). Whichever is higher counts. The reflexive half rests on weaker evidence than the passive half. Design assumptions.",
+    onDevice:
+      "Taps on the like, save, share and comment controls, with the time from the reel appearing to the tap and to the next swipe.",
     reelioColumns: [
       "Liked",
       "Saved",
       "Shared",
       "Commented",
-      "ProfileVisits",
-      "HashtagTaps",
       "InteractionRate",
+      "LikeLatency",
+      "InteractionDwellRatio",
+      "LikeStreakLength",
+      "InteractionBurstiness",
     ],
-    sources: [LUKOFF_2018, CHO_2021, GUO_2025],
+    sources: [LUKOFF_2018, CHO_2021, GUO_2025, FOLK_TRAINING_2025, ACTIVE_SV_ATTENTION],
   },
   {
     key: "time",

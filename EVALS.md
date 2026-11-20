@@ -15,14 +15,14 @@ All evals run against the same pure code the app uses: `src/lib/drift.ts` holds 
 
 ---
 
-## 1. Automated tests: 40 passing
+## 1. Automated tests: 42 passing
 
 Run them with `bunx vitest run`.
 
 | Group | Tests | What they pin down |
 |---|---|---|
 | Evidence and weights | 2 | Weights come from `evidence.ts` and sum to 100. How the session started outweighs minutes in the feed (intention gap β 0.76 vs duration β 0.18, Ahmed et al. 2026). |
-| Individual signals | 9 | Each signal's range and edge cases:<br>• fast swipe < 2 s<br>• night = 9 pm–7 am<br>• purpose counts only after 1 min in the feed<br>• time counts from 2× the usual session<br>• in bed needs both sensors<br>• earlier-today load is relative to the person's usual day |
+| Individual signals | 11 | Each signal's range and edge cases:<br>• fast swipe < 2 s<br>• night = 9 pm–7 am<br>• purpose counts only after 1 min in the feed<br>• time counts from 2× the usual session<br>• in bed needs both sensors<br>• earlier-today load is relative to the person's usual day<br>• likes on watched reels lower the engagement signal, but like-and-swipe and liking nearly everything raise it |
 | Scenario evals | 9 | Behaviour patterns from the literature, run through the real reducer (see section 2). |
 | Intervention ladder | 6 | The steps fire in order; there are at least 2 min and 5 high reels between steps; the pause never comes before 14 min; 10 calm reels lift everything; an engaged viewer never reaches step 1; swipe distance is ⅓ normally and ⅔ with friction on. |
 | Pause message | 3 | Reminds the person of their purpose when there was one, asks an open question when there wasn't, and labels the demo clock. |
@@ -36,13 +36,16 @@ Run them with `bunx vitest run`.
 
 | Pattern | Peak score | Step 1 | Step 2 | Step 3 | Pauses |
 |---|---|---|---|---|---|
-| Quick checker: 20 reels at ~1 s each, then leaves | 50 | never | never | never | 0 |
+| Quick checker: 20 reels in ~1 s each, then leaves | 50 | never | never | never | 0 |
 | Engaged viewer: watches ~14 s, likes 1 in 3, daytime | 38 | never | never | never | 0 |
 | Engaged viewer at 11 pm in bed, 90 min earlier today | 63 | never | never | never | 0 |
 | Opened the app into Reels, skips 2 of 3, daytime | 65 | 14.0 min | 16.0 min | 18.0 min | 5 |
 | Came to reply to a DM, slid into skipping 2 of 3 | 75 | 10.0 min | 12.0 min | 14.0 min | 6 |
 | Same, at 11 pm after an hour of Reels earlier | 92 | 10.0 min | 12.0 min | 14.0 min | 6 |
-| Slow passive: 6 s per reel, never likes, daytime | 45 | never | never | never | 0 |
+| Feed-training: likes nearly every reel, ~6 s each, daytime | 45 | never | never | never | 0 |
+| Feed-training at 11 pm in bed, 60 min earlier today | 67 | 17.6 min | 19.6 min | 21.6 min | 4 |
+| Like-and-swipe: likes 1 in 2, leaves in ~1.5 s, daytime | 65 | 13.9 min | 15.9 min | 17.9 min | 5 |
+| Slow passive: watches 6 s each, never likes, daytime | 45 | never | never | never | 0 |
 | Slow passive at 11 pm in bed | 60 | 19.9 min | 21.9 min | 23.9 min | 4 |
 
 ### How a session crosses the threshold
@@ -53,7 +56,7 @@ The threshold is 60 points, held for 5 reels in a row, after at least 10 minutes
 |---|---|---|
 | How it started | 25 / 25 | Came to reply to a message, still in Reels 10 minutes later |
 | Skipping | 20 / 20 | 6–7 of the last 10 left in under 2 s, well above the usual 20% |
-| No interaction | 15 / 15 | No like, save or share in the last 10 |
+| How you engage | 15 / 15 | No like, save or share in the last 10 |
 | Time in feed | 6 / 15 | Ramps from 3 to 20 min |
 | Night, in bed, earlier today | 0 | Daytime, no earlier use |
 | **Total** | **≈ 66** | Over 60 at the 10-minute floor, so step 1 starts there |
@@ -66,11 +69,22 @@ Opening straight into Reels scores 15 for how it started, not 25. That session n
 - **Drift from a purpose is caught first, at the floor.** Intent drift is the strongest predictor of regret in the literature, and it is the strongest signal here too.
 - **The pause screen is the last resort.** It comes 4 minutes after step 1 at the earliest.
 
+### Liking is not always a good sign
+
+An earlier version treated any like as healthy, so liking lowered the score. That misses a known pattern: people like, skip and share on purpose to "train" the recommendation algorithm, and liking reel after reel can itself be autopilot. The original Reelio app already logs this (`LikeStreakLength`, `LikeLatency`, `InteractionDwellRatio`, `InteractionBurstiness`).
+
+The "how you engage" signal now scores whichever of three patterns is strongest in the last 10 reels:
+- **Passive:** no like, save or share at all.
+- **Like-and-swipe:** liked, then gone within 3 s.
+- **Liking nearly everything:** 4+ liked reels in a row, or over 60% liked.
+
+Occasional likes on reels that were actually watched still count as healthy. In the table above, like-and-swipe is caught at 14 min in the daytime. Liking nearly everything at a normal pace is caught only together with other signals (night, in bed, a long day), the same as slow passive watching. The like-and-swipe and liking-everything patterns rest on weaker evidence than the passive one and are first in line for the field test.
+
 ## 3. Gaps the simulation found
 
 Both are open, not fixed.
 
-1. **Slow, passive daytime watching is missed.** Watching every reel for about 6 s without liking anything peaks at 45. The skip signal never fires, because nothing is under 2 s, and daytime adds nothing. If field data shows people regret these sessions, the "no interaction" window or the time signal needs more weight. That gets decided with data, not guessed now.
+1. **Slow, passive daytime watching is missed.** Watching every reel for about 6 s without liking anything peaks at 45. The skip signal never fires, because nothing is under 2 s, and daytime adds nothing. If field data shows people regret these sessions, the engagement window or the time signal needs more weight. That gets decided with data, not guessed now.
 2. **The engaged viewer at night peaks at 63, over the threshold.** They are never stepped in on, because likes keep breaking the 5-reel streak. The streak is doing real work here: without it, this person would get false alarms. It is a narrow margin, and it is the first thing to check in the field.
 
 ## 4. Interaction checks (browser, scripted with Playwright)

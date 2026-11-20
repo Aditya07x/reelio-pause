@@ -70,22 +70,39 @@ describe("individual factors", () => {
     expect(FACTORS.every((f) => f.reelioColumns.length > 0)).toBe(true);
   });
 
-  it("liking reels lowers the no-interaction factor", () => {
-    const dwellsMs = Array(10).fill(4000);
-    const passive = computeDrift({
+  it("liking some of the reels you actually watch lowers the engagement signal", () => {
+    const dwellsMs = Array(10).fill(8000);
+    const passive = computeDrift({ sessionMs: 5 * MIN, dwellsMs, engaged: Array(10).fill(false), hour: 14 });
+    const watchedAndLiked = computeDrift({
       sessionMs: 5 * MIN,
       dwellsMs,
-      engaged: Array(10).fill(false),
-      hour: 14,
-    });
-    const active = computeDrift({
-      sessionMs: 5 * MIN,
-      dwellsMs,
-      engaged: Array(10).fill(true),
+      engaged: Array.from({ length: 10 }, (_, i) => i % 3 === 0),
       hour: 14,
     });
     expect(part(passive, "interaction")).toBe(15);
-    expect(part(active, "interaction")).toBe(0);
+    expect(part(watchedAndLiked, "interaction")).toBeLessThan(5);
+  });
+
+  it("liking and swiping straight on counts as reflexive, not engaged", () => {
+    const r = computeDrift({
+      sessionMs: 5 * MIN,
+      dwellsMs: Array(10).fill(1500),
+      engaged: Array.from({ length: 10 }, (_, i) => i % 2 === 0),
+      hour: 14,
+    });
+    expect(r.engageMode).toBe("reflex");
+    expect(part(r, "interaction")).toBe(15);
+  });
+
+  it("liking reel after reel counts as a streak, even when each is watched", () => {
+    const r = computeDrift({
+      sessionMs: 5 * MIN,
+      dwellsMs: Array(10).fill(6000),
+      engaged: Array(10).fill(true),
+      hour: 14,
+    });
+    expect(r.engageMode).toBe("streak");
+    expect(part(r, "interaction")).toBe(15);
   });
 
   it("lingering on the current reel pulls the skip-rate factor down", () => {

@@ -12,6 +12,25 @@ import type { ReelioSession } from "@/hooks/use-reelio-session";
 import { PauseOverlay } from "./pause-overlay";
 import { ReelCard } from "./reel-card";
 import { MoodFace } from "./mood-face";
+import { stateFor } from "@/lib/states";
+
+/** The live score, small, top-left of the feed: what the person would see with "show score" on. */
+function ScoreBadge({ score }: { score: number }) {
+  const st = stateFor(score);
+  return (
+    <div className="pointer-events-none absolute left-3 top-[44px] z-20 flex items-center gap-1.5 rounded-full border border-white/40 bg-[#FAF8F5]/90 py-1 pl-1 pr-2.5 shadow-paper backdrop-blur-md">
+      <img src="/reelio-logo-128.png" alt="" className="size-5 rounded-[5px]" />
+      <span
+        className="font-grotesk text-[14px] font-bold tabular-nums leading-none transition-colors duration-700"
+        style={{ color: st.accent }}
+        aria-label={`Reelio score ${score}`}
+      >
+        {score}
+      </span>
+      <span className="size-1.5 rounded-full transition-colors duration-700" style={{ background: st.accent }} />
+    </div>
+  );
+}
 
 /** Short drags under this are treated as taps, never as swipes. */
 const MIN_FLICK_PX = 24;
@@ -73,7 +92,8 @@ function LadderChip({ level, minutes }: { level: Level; minutes: number }) {
 }
 
 export function Feed({ session }: { session: ReelioSession }) {
-  const { state, step, keepGoing, close, demoSpeed, engage } = session;
+  const { state, step, keepGoing, close, demoSpeed, engage, drift } = session;
+  const [pull, setPull] = useState(0);
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -126,6 +146,7 @@ export function Feed({ session }: { session: ReelioSession }) {
       // Rubber band at the top of the feed.
       if (dy > 0 && indexRef.current === 0) dy *= 0.3;
       setOffset(dy * dragFollowFor(levelRef.current));
+      setPull(Math.min(1, Math.abs(dy) / (height * swipeShareFor(levelRef.current))));
       samples.push({ y: ev.clientY, t: performance.now() });
       if (samples.length > 6) samples.shift();
     };
@@ -136,6 +157,7 @@ export function Feed({ session }: { session: ReelioSession }) {
       const velocity = (ev.clientY - first.y) / scale / Math.max(1, now - first.t); // px/ms
       setDragging(false);
       setOffset(0);
+      setPull(0);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -212,7 +234,23 @@ export function Feed({ session }: { session: ReelioSession }) {
         })}
       </div>
 
+      {!blocked && <ScoreBadge score={drift.score} />}
       {!blocked && <LadderChip level={level} minutes={Math.round(state.sessionMs / 60000)} />}
+
+      {/* With friction on, show how far a swipe still has to go. */}
+      {dragging && level >= 1 && pull > 0.05 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[150px] z-20 flex flex-col items-center gap-1.5">
+          <div className="h-2 w-40 overflow-hidden rounded-full bg-white/35 backdrop-blur">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${pull * 100}%`, background: pull >= 1 ? "#9EB384" : "#F7D1BA" }}
+            />
+          </div>
+          <span className="rounded-full bg-black/40 px-2 py-0.5 font-nunito text-[11px] font-semibold text-white">
+            {pull >= 1 ? "Let go for the next reel" : "Heavier scroll: keep pulling"}
+          </span>
+        </div>
+      )}
 
       {state.overlay && (
         <PauseOverlay

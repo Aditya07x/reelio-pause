@@ -33,6 +33,20 @@ export const TYPICAL_SESSION_SEC = 94;
 const SWITCH_WINDOW = 10;
 const PASSIVE_WINDOW = 10;
 const CONFIDENT_AFTER = 5;
+/** A like followed by leaving the reel within this long counts as reflexive, not watched. */
+export const QUICK_LIKE_MS = 3000;
+
+export type EngageMode = "passive" | "reflex" | "streak" | null;
+
+function longestRun(xs: boolean[]) {
+  let best = 0;
+  let run = 0;
+  for (const x of xs) {
+    run = x ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
 
 export const WEIGHTS = Object.fromEntries(FACTORS.map((f) => [f.key, f.weight])) as Record<
   FactorKey,
@@ -70,6 +84,8 @@ export interface DriftResult {
   parts: DriftPart[];
   fastCount: number;
   recentCount: number;
+  /** Which engagement pattern drove the "how you engage" signal. */
+  engageMode: EngageMode;
 }
 
 function clamp(v: number, lo = 0, hi = 1) {
@@ -112,15 +128,28 @@ export function computeDrift({
   const fastCount = recent.filter(isFastSwipe).length;
   const fastShare = n ? fastCount / n : 0;
 
-  const recentEng = engaged.slice(-PASSIVE_WINDOW);
-  const m = Math.min(recentEng.length, dwellsMs.length);
+  const m = Math.min(engaged.length, dwellsMs.length, PASSIVE_WINDOW);
+  const recentEng = engaged.slice(-m);
+  const recentDwell = dwellsMs.slice(-m);
   const passiveShare = m ? recentEng.filter((e) => !e).length / m : 0;
+  // Reflexive liking: liked, then gone within 3 s; or liking reel after reel.
+  const quickLikes = recentEng.filter((e, i) => e && recentDwell[i]! < QUICK_LIKE_MS).length;
+  const likeRun = m ? longestRun(recentEng) : 0;
+  const likeCount = recentEng.filter(Boolean).length;
+  const engageConf = Math.min(1, m / CONFIDENT_AFTER);
+  const modes: [EngageMode, number][] = [
+    ["passive", ramp(passiveShare, 0.5, 0.9)],
+    ["reflex", ramp(quickLikes, 2, 5)],
+    // Liking reel after reel, or nearly everything: not selective any more.
+    ["streak", Math.max(ramp(likeRun, 4, 8), ramp(m ? likeCount / m : 0, 0.6, 0.9))],
+  ];
+  const [engageMode, engageRaw] = modes.reduce((a, b) => (b[1] > a[1] ? b : a));
 
   const f = {
     entry: intentFactor(entry, feedMin),
     // Skips above this person's usual rate count; full weight 30 points above it.
     skips: clamp((fastShare - baseline.skipRate) / 0.3) * confidence,
-    interaction: ramp(passiveShare, 0.5, 0.9) * Math.min(1, m / CONFIDENT_AFTER),
+    interaction: engageRaw * engageConf,
     // Starts at twice this person's usual session (never before 2 or after 10 min), full at 20 min.
     time: ramp(feedMin, timeStart(baseline), 20),
     night: isNight(hour) ? 1 : 0,
@@ -142,9 +171,17 @@ export function computeDrift({
     skips: n
       ? `${fastCount} of last ${n} left in under 2 s · usual ${Math.round(baseline.skipRate * 100)}%`
       : "waiting for a few reels",
-    interaction: m
-      ? `${Math.round(passiveShare * 100)}% of last ${m} reels with no like, save or share`
-      : "waiting for a few reels",
+    interaction: !m
+      ? "waiting for a few reels"
+      : engageRaw === 0
+        ? `liking reels you watch · ${recentEng.filter(Boolean).length} of last ${m}`
+        : engageMode === "reflex"
+          ? `${quickLikes} of last ${m} liked and left in under 3 s`
+          : engageMode === "streak"
+            ? likeRun >= 4
+              ? `${likeRun} reels liked in a row`
+              : `liked ${likeCount} of last ${m}`
+            : `${Math.round(passiveShare * 100)}% of last ${m} with no like, save or share`,
     time: `${feedMin.toFixed(1)} min · your usual session ${baseline.sessionMin.toFixed(1)} min`,
     night: isNight(hour) ? "between 9 pm and 7 am" : "daytime",
     bed: stillInDark ? "phone still, room dark" : "moving or in light",
@@ -166,7 +203,13 @@ export function computeDrift({
       100,
     ),
   );
-  return { score, parts, fastCount, recentCount: n };
+  return {
+    score,
+    parts,
+    fastCount,
+    recentCount: n,
+    engageMode: engageRaw > 0 ? engageMode : null,
+  };
 }
 
 export function timeStart(baseline: Baseline = DEFAULT_BASELINE) {
@@ -284,7 +327,12 @@ export function pauseReasons(r: DriftResult, entry: EntryContext, sessionMs: num
   const words: Record<FactorKey, string> = {
     entry: purpose ? `You came to ${purpose}` : "Opened straight into Reels",
     skips: `Skipped ${r.fastCount} of the last ${r.recentCount}`,
-    interaction: "No likes or saves lately",
+    interaction:
+      r.engageMode === "reflex"
+        ? "Liking, then swiping straight on"
+        : r.engageMode === "streak"
+          ? "Liking almost every reel"
+          : "No likes or saves lately",
     time: `${Math.round(sessionMs / 60000)} min in Reels`,
     night: "It's late",
     bed: "Lying still in the dark",

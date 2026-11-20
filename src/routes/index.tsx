@@ -39,6 +39,8 @@ const VIEWS: { id: View; label: string }[] = [
 
 const PANEL_W = 360;
 const RAIL_W = 210;
+/** Halo around the Instagram phone per ladder step: the app's sage, peach and blush. */
+const STEP_GLOW = [undefined, "#9EB384", "#F7D1BA", "#E5C3C6"] as const;
 const GAP = 28;
 
 /**
@@ -151,6 +153,7 @@ function Index() {
             </div>
             <PhoneFrame
               scale={scale}
+              glow={state.phase === "feed" ? STEP_GLOW[state.level] : undefined}
               clock={session.clock}
               onHome={state.phase === "feed" ? session.close : undefined}
               homeLabel="Leave the feed"
