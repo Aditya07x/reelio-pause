@@ -7,7 +7,7 @@
 //   weak     = a trend, or only survey evidence; kept small and flagged
 // "Threshold" text marks which numbers are design assumptions rather than findings.
 
-export type FactorKey = "intent" | "switching" | "passive" | "time" | "night" | "load";
+export type FactorKey = "entry" | "skips" | "interaction" | "time" | "night" | "bed" | "load";
 export type Strength = "strong" | "moderate" | "weak";
 
 export interface Source {
@@ -28,6 +28,8 @@ export interface FactorEvidence {
   threshold: string;
   /** How a real phone could observe it without asking the user anything. */
   onDevice: string;
+  /** The columns the Reelio Android app already logs for this. */
+  reelioColumns: string[];
   sources: Source[];
 }
 
@@ -79,6 +81,18 @@ export const IQBAL_2008: Source = {
   label: "Iqbal & Bailey 2008, interruptions at breakpoints reduce frustration (CHI '08)",
   url: "https://doi.org/10.1145/1357054.1357070",
 };
+export const HEITMAYER_2021: Source = {
+  label: "Heitmayer & Lahlou 2021, Why are smartphones disruptive? (Computers in Human Behavior)",
+  url: "https://researchonline.lse.ac.uk/id/eprint/107820",
+};
+const LEE_2014: Source = {
+  label: "Lee et al. 2014, Hooked on Smartphones: overuse in logged data (CHI '14)",
+  url: "https://ic.kaist.ac.kr/files/papers/lee2014hooked.pdf",
+};
+const KHEIRINEJAD_2022: Source = {
+  label: "Kheirinejad et al. 2022, Leave your smartphone out of bed (Pers. Ubiquit. Comput.)",
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9643910/",
+};
 export const OULASVIRTA_2012: Source = {
   label: "Oulasvirta et al. 2012, checking habits (Pers. Ubiquit. Comput.)",
   url: "https://doi.org/10.1007/s00779-011-0412-2",
@@ -86,57 +100,75 @@ export const OULASVIRTA_2012: Source = {
 
 export const FACTORS: FactorEvidence[] = [
   {
-    key: "intent",
-    label: "Drift from purpose",
-    weight: 30,
+    key: "entry",
+    label: "How the session started",
+    weight: 25,
     strength: "strong",
     measures:
-      "Whether the session started with a purpose (a message, a notification, a search) and has since slid into the recommended feed, or started with no visible purpose at all.",
+      "The route into the feed: opened from the home screen with nothing else on screen, or arrived for something specific (a message, a notification, a search) and then moved into the Reels feed, or switched over from a work or study app.",
     finding:
-      "The gap between intended and actual use predicted regret about twice as strongly as session length (β 0.76 vs 0.36); with both in the model, length fell to β 0.18. People regret use without a specific goal most, and often slide from messaging into browsing. Recommended content next to purposeful features causes the sidetracking.",
+      "The gap between what people meant to do and what they did predicted regret about twice as strongly as session length (β 0.76 vs 0.36). Use without a specific goal is the most regretted, and people often slide from messaging into browsing. Self-started phone sessions run longer and are more distraction-seeking than notification-started ones, and in an overuse study the at-risk group's notification-started chains of use were longer.",
     threshold:
-      "Purposeful entries count as drift after 1 minute in the recommended feed, fully after 3 minutes. Opening straight into the feed counts as 0.6 (no visible purpose, which is not proof of none). Both cut-offs are design assumptions.",
+      "Home screen start = 0.6 (no visible purpose, which is not proof of none). Work or study app = 0.8. Message, notification or search = 0 for the first minute in the feed, rising to 1 at 3 minutes (they came for something else and stayed). Values are design assumptions.",
     onDevice:
-      "Which screen the session starts on and which screen it is on now (DM thread, search, notification target vs the Reels feed), read from the app's screen structure. No question is asked.",
-    sources: [AHMED_2026, GUO_2025, CHO_2021],
+      "The app that was on screen just before, whether a notification opened it, and which screen the session is on now (chat, search, Reels feed).",
+    reelioColumns: [
+      "DirectLaunch",
+      "SessionTriggeredByNotif",
+      "PreviousAppCategory",
+      "PreviousApp",
+    ],
+    sources: [AHMED_2026, GUO_2025, HEITMAYER_2021, LEE_2014, CHO_2021],
   },
   {
-    key: "switching",
-    label: "Rapid switching",
+    key: "skips",
+    label: "Skip rate",
     weight: 20,
     strength: "moderate",
-    measures: "Share of recent reels swiped away within 2 seconds.",
+    measures: "Share of the last 8 reels left within 2 seconds.",
     finding:
       "Across seven experiments (N = 1,223), bored people switch videos more, and switching makes them more bored, less satisfied and less attentive. On a TikTok-style feed, swipes cluster just after a video starts or at its end, so an early swipe means rejecting, not watching.",
     threshold:
-      "Under 2 s counts as a fast swipe; full weight when half of the last 8 reels are fast. Both numbers are design assumptions.",
+      "Under 2 s counts as a skip; full weight when half of the last 8 reels are skips. Both are design assumptions.",
     onDevice: "Time between reel changes, from scroll events.",
+    reelioColumns: ["DwellTime", "ScrollStreak", "CumulativeReels"],
     sources: [TAM_2024, DASHLET_2022],
   },
   {
-    key: "passive",
-    label: "Passive watching",
+    key: "interaction",
+    label: "No interaction",
     weight: 15,
     strength: "moderate",
-    measures: "Share of recent reels with no like, save, share or comment.",
+    measures:
+      "Share of the last 10 reels with no like, save, share, comment, profile visit or hashtag tap: watching without doing anything.",
     finding:
       "Passive social media use and habitual use to pass time were the least meaningful kinds of phone use, with participants describing a loss of autonomy. Passive features (feeds, recommended posts) were regretted more than active ones.",
     threshold:
-      "Starts counting when over half of the last 10 reels had no interaction; full weight at 90%. Design assumption.",
-    onDevice: "Taps on like/save/share/comment controls.",
+      "Starts counting when over half of the last 10 reels had no action; full weight at 90%. Design assumption.",
+    onDevice: "Taps on the like, save, share and comment controls, profile opens and hashtag taps.",
+    reelioColumns: [
+      "Liked",
+      "Saved",
+      "Shared",
+      "Commented",
+      "ProfileVisits",
+      "HashtagTaps",
+      "InteractionRate",
+    ],
     sources: [LUKOFF_2018, CHO_2021, GUO_2025],
   },
   {
     key: "time",
-    label: "Time in the feed",
+    label: "Minutes in the feed",
     weight: 15,
     strength: "weak",
-    measures: "Minutes spent in the feed this session.",
+    measures: "Minutes spent in the Reels feed this session.",
     finding:
-      "Length matters, but less than people assume: β 0.18 once intent is accounted for, and time spent did not predict dissociation in a separate study. Sense of purpose does fade as passive use goes on, so length is kept as a slow-building factor.",
+      "Length matters less than people assume: β 0.18 once intent is in the model, and time spent did not predict the spaced-out, mindless state in a separate study. A sense of purpose does fade as passive use goes on, so length builds slowly.",
     threshold:
       "Zero for the first 2 minutes (a typical social media session is about 94 seconds), full at 20 minutes, where earlier studies placed their break prompts (15 and 20 min).",
-    onDevice: "Foreground time in the feed screen.",
+    onDevice: "Foreground time on the Reels feed screen.",
+    reelioColumns: ["DwellTime", "StartTime", "EndTime"],
     sources: [AHMED_2026, BAUGHAN_2022, LUKOFF_2018, MEINHARDT_2025],
   },
   {
@@ -149,20 +181,36 @@ export const FACTORS: FactorEvidence[] = [
       "Night sessions were regretted more even after controlling for length (β 0.30). Survey studies link short-video addiction with bedtime procrastination and poorer sleep.",
     threshold: "Uses the study's 9 pm–7 am window as is.",
     onDevice: "Device clock.",
+    reelioColumns: ["TimePeriod", "CircadianPhase", "SleepProxyScore"],
     sources: [AHMED_2026, SVA_SLEEP],
   },
   {
+    key: "bed",
+    label: "Lying still in the dark",
+    weight: 5,
+    strength: "weak",
+    measures: "Phone held still with the room dark: a rough sign of scrolling in bed.",
+    finding:
+      "Smartphone use in bed worsened sleep latency, time awake and heart-rate measures, while use outside bed did not lower sleep quality. Movement features (accelerometer variability, steps) were among those retained for predicting regretted sessions.",
+    threshold:
+      "Counts only when both the motion and light sensors agree. Detecting 'in bed' this way is a design assumption and the weight is kept small.",
+    onDevice: "Accelerometer variance and the ambient light sensor.",
+    reelioColumns: ["IsStationary", "AccelVariance", "IsScreenInDarkRoom", "AmbientLuxStart"],
+    sources: [KHEIRINEJAD_2022, AHMED_2026],
+  },
+  {
     key: "load",
-    label: "Already scrolled today",
+    label: "Earlier today",
     weight: 10,
     strength: "moderate",
     measures: "Minutes already spent in short-video feeds today, before this session.",
     finding:
-      "Same-day and previous-day screen time were among the strongest predictors of a regretted session in the phone-context model.",
+      "Same-day and previous-day screen time were among the strongest predictors of a regretted session. In an overuse study, total daily time separated the at-risk group while how often they opened the phone did not.",
     threshold:
       "Full weight at 90 minutes, about 1.5× the 55–60 minutes a day Bain projects for Indian short-video users. Design assumption.",
-    onDevice: "Running total kept on the phone (or Android usage stats).",
-    sources: [AHMED_2026],
+    onDevice: "A running total kept on the phone, or Android usage stats.",
+    reelioColumns: ["ScreenOnDuration1hr", "(daily total: new)"],
+    sources: [AHMED_2026, LEE_2014],
   },
 ];
 
@@ -172,8 +220,8 @@ export const WEIGHT_TOTAL = FACTORS.reduce((a, f) => a + f.weight, 0);
 export const LEFT_OUT: { label: string; why: string; sources: Source[] }[] = [
   {
     label: "How often the app is re-opened",
-    why: "Checking habits are real (brief, repeated checks under 30 s), but people experience them as annoyance rather than addiction, and time since the last session showed no regret effect. Better for a weekly insight than a live trigger.",
-    sources: [OULASVIRTA_2012, AHMED_2026],
+    why: "Checking habits are real (brief, repeated checks under 30 s), but people experience them as annoyance rather than addiction. Time since the last session showed no regret effect, and session frequency did not separate overusers from others. Better for a weekly insight than a live trigger.",
+    sources: [OULASVIRTA_2012, AHMED_2026, LEE_2014],
   },
   {
     label: "Doomscrolling as negative news",
@@ -195,9 +243,9 @@ export const LEFT_OUT: { label: string; why: string; sources: Source[] }[] = [
 /** Rules about when and how to interrupt, separate from whether to. */
 export const INTERRUPT_RULES: { rule: string; why: string; sources: Source[] }[] = [
   {
-    rule: "Never before 3 minutes in the feed",
-    why: "Quick checks and typical sessions (about 94 s) are left alone; regret concentrates in longer, drifting sessions.",
-    sources: [OULASVIRTA_2012, AHMED_2026],
+    rule: "Never before 10 minutes in the feed",
+    why: "Quick checks and typical sessions (about 94 s) are always left alone, and a high bar keeps false alarms rare: blockers that misread meaningful time get bypassed or switched off. Earlier studies prompted at 15–20 minutes; 10 is the floor, and most pauses land between 10 and 15.",
+    sources: [OULASVIRTA_2012, AHMED_2026, MEINHARDT_2025],
   },
   {
     rule: "Only between reels",
@@ -218,5 +266,134 @@ export const INTERRUPT_RULES: { rule: string; why: string; sources: Source[] }[]
     rule: "At most one pause every 5 minutes; the second asks for a 5-second wait",
     why: "Repeated interruptions that don't fit the moment lead to desensitisation; a short wait adds friction that reduced app openings.",
     sources: [MEINHARDT_2025, ONESEC_2023],
+  },
+];
+
+/**
+ * Audit of the ~100 per-reel signals the Reelio Android app logs (CSV schema v5),
+ * grouped, against the literature above. "used" feeds a factor; "later" has some
+ * support but needs testing first; "not used" has no evidence linking it to regret
+ * or meaningless use, duplicates a used signal, or is not implemented yet.
+ */
+export type AuditVerdict = "used" | "later" | "not used";
+
+export const SIGNAL_AUDIT: {
+  group: string;
+  columns: string;
+  verdict: AuditVerdict;
+  note: string;
+}[] = [
+  {
+    group: "Entry route",
+    columns: "DirectLaunch, SessionTriggeredByNotif, PreviousApp, PreviousAppCategory",
+    verdict: "used",
+    note: "How the session started. Strongest evidence of any signal.",
+  },
+  {
+    group: "Time per reel",
+    columns: "DwellTime, ScrollStreak, CumulativeReels",
+    verdict: "used",
+    note: "Skip rate, and minutes and reels in the feed.",
+  },
+  {
+    group: "Active actions",
+    columns: "Liked, Saved, Shared, Commented, ProfileVisits, HashtagTaps, InteractionRate",
+    verdict: "used",
+    note: "No interaction = passive watching. Profile visits and hashtag taps count as active.",
+  },
+  {
+    group: "Clock",
+    columns: "TimePeriod, CircadianPhase, SleepProxyScore",
+    verdict: "used",
+    note: "Night, 9 pm – 7 am.",
+  },
+  {
+    group: "Motion and light",
+    columns: "IsStationary, AccelVariance, IsScreenInDarkRoom, AmbientLuxStart",
+    verdict: "used",
+    note: "Lying still in the dark, a rough in-bed sign. Small weight.",
+  },
+  {
+    group: "Recent screen time",
+    columns: "ScreenOnDuration1hr, ScreenOnCount1hr",
+    verdict: "used",
+    note: "Feeds 'earlier today'. Needs a daily total added; the count of screen-ons is not used (frequency did not separate overusers).",
+  },
+  {
+    group: "Leaving and coming back",
+    columns: "AppExitAttempts, ReturnLatencyS",
+    verdict: "later",
+    note: "Matches the 'outer loop' of habitual returns described in infinite-scroll research, but no study tested it against regret yet.",
+  },
+  {
+    group: "Re-watching",
+    columns: "BackScrollCount",
+    verdict: "later",
+    note: "Scrolling back into already-seen posts was linked to more dissociation, but only on a Twitter-like app.",
+  },
+  {
+    group: "Attention drift within a session",
+    columns: "InteractionDropoff, EarlyVsLateRatio, SessionDwellTrend",
+    verdict: "later",
+    note: "Sense of purpose fades as passive use goes on; worth testing as an early sign, once there is data to test it.",
+  },
+  {
+    group: "Re-opening frequency",
+    columns: "TimeSinceLastSessionMin, ScreenOnCount1hr",
+    verdict: "not used",
+    note: "No regret effect, and session frequency did not separate overusers. Kept for weekly insights.",
+  },
+  {
+    group: "Scroll mechanics",
+    columns:
+      "AvgScrollSpeed, MaxScrollSpeed, ScrollIntervalCV, ScrollRhythmEntropy, ScrollBurstDuration, InterBurstRestDuration, ScrollPauseCount, SwipeCompletionRatio, ScrollDirection",
+    verdict: "not used",
+    note: "No published link to regret found; what matters in them is already captured by skip rate.",
+  },
+  {
+    group: "Running dwell statistics",
+    columns: "RollingMean, RollingStd, DwellTimeZscore, DwellTimePctile, DwellAcceleration",
+    verdict: "not used",
+    note: "Derived from time per reel; redundant with skip rate in this version.",
+  },
+  {
+    group: "Interaction details",
+    columns:
+      "LikeLatency, CommentLatency, ShareLatency, SaveLatency, InteractionDwellRatio, InteractionBurstiness, LikeStreakLength, SavedWithoutLike, CommentAbandoned",
+    verdict: "not used",
+    note: "Finer cuts of the same active-vs-passive signal with no separate evidence.",
+  },
+  {
+    group: "Content",
+    columns:
+      "HasCaption, CaptionExpanded, HasAudio, IsAd, AdSkipLatencyMs, UniqueAudioCount, RepeatContentFlag, ContentRepeatRate",
+    verdict: "not used",
+    note: "No evidence linking these to regret; repeat-content columns are not implemented yet.",
+  },
+  {
+    group: "Device state",
+    columns:
+      "BatteryStart, BatteryDeltaPerSession, IsCharging, Headphones, AudioOutputType, DeviceOrientation, PostureShiftCount, MicroMovementRms, LuxDelta, NightMode, DND",
+    verdict: "not used",
+    note: "Used in boredom-detection research, but boredom is not regret; no direct evidence. MicroMovementRms is not implemented.",
+  },
+  {
+    group: "Notifications during the session",
+    columns: "NotificationsDismissed, NotificationsActedOn",
+    verdict: "not used",
+    note: "No evidence found linking these to regretted scrolling.",
+  },
+  {
+    group: "Calendar and sleep estimates",
+    columns: "DayOfWeek, IsWeekend, IsHoliday, EstimatedSleepDurationH, ConsistencyScore",
+    verdict: "not used",
+    note: "Weekly patterns, not live signals; overlaps with night.",
+  },
+  {
+    group: "Self-reports",
+    columns:
+      "PostSessionRating, RegretScore, MoodBefore, MoodAfter, IntendedAction, ComparativeRating",
+    verdict: "later",
+    note: "Not detector inputs. The 1-in-5 post-session check-in is how the detector would be tested and tuned.",
   },
 ];

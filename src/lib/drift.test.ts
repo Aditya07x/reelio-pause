@@ -30,8 +30,8 @@ describe("evidence and weights", () => {
     expect(r.parts.map((p) => p.max)).toEqual(FACTORS.map((f) => f.weight));
   });
 
-  it("drift from purpose outweighs time in the feed (intent β 0.76 vs duration β 0.18)", () => {
-    const intent = FACTORS.find((f) => f.key === "intent")!.weight;
+  it("how the session started outweighs minutes in the feed (intent gap β 0.76 vs duration β 0.18)", () => {
+    const intent = FACTORS.find((f) => f.key === "entry")!.weight;
     const time = FACTORS.find((f) => f.key === "time")!.weight;
     expect(intent).toBeGreaterThan(time);
   });
@@ -55,7 +55,11 @@ describe("individual factors", () => {
     expect(isFastSwipe(2000)).toBe(false);
   });
 
-  it("liking reels lowers the passive-watching factor", () => {
+  it("every factor maps to columns the Android app already logs", () => {
+    expect(FACTORS.every((f) => f.reelioColumns.length > 0)).toBe(true);
+  });
+
+  it("liking reels lowers the no-interaction factor", () => {
     const dwellsMs = Array(10).fill(4000);
     const passive = computeDrift({
       sessionMs: 5 * MIN,
@@ -69,25 +73,32 @@ describe("individual factors", () => {
       engaged: Array(10).fill(true),
       hour: 14,
     });
-    expect(part(passive, "passive")).toBe(15);
-    expect(part(active, "passive")).toBe(0);
+    expect(part(passive, "interaction")).toBe(15);
+    expect(part(active, "interaction")).toBe(0);
   });
 
-  it("lingering on the current reel pulls the switching factor down", () => {
+  it("lingering on the current reel pulls the skip-rate factor down", () => {
     // Half of the last 8 reels were fast swipes: right at full weight.
     const base = {
       sessionMs: 10 * MIN,
       dwellsMs: [800, 4000, 800, 4000, 800, 4000, 800, 4000],
       hour: 14,
     };
-    expect(part(computeDrift({ ...base, currentDwellMs: 90_000 }), "switching")).toBeLessThan(
-      part(computeDrift(base), "switching"),
+    expect(part(computeDrift({ ...base, currentDwellMs: 90_000 }), "skips")).toBeLessThan(
+      part(computeDrift(base), "skips"),
     );
   });
 
   it("time in the feed is zero for the first 2 minutes (typical session ~94 s)", () => {
     expect(part(computeDrift({ sessionMs: 1.5 * MIN, dwellsMs: [], hour: 14 }), "time")).toBe(0);
     expect(part(computeDrift({ sessionMs: 20 * MIN, dwellsMs: [], hour: 14 }), "time")).toBe(15);
+  });
+
+  it("lying still in the dark adds a small amount, only when both sensors agree", () => {
+    expect(
+      part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 23, stillInDark: true }), "bed"),
+    ).toBe(5);
+    expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 23 }), "bed")).toBe(0);
   });
 
   it("earlier short-video time today adds up to its full weight at 90 min", () => {
@@ -109,6 +120,7 @@ interface Persona {
   entry: EntryContext;
   hour: number;
   dailyMinBefore?: number;
+  stillInDark?: boolean;
   /** Time on each reel, by reel number. */
   dwell: (i: number) => number;
   /** Does the person like/save reel i? */
@@ -147,6 +159,20 @@ describe("scenario evals", () => {
     expect(run({ entry: "home", hour: 14, dwell: () => 1200, minutes: 2.5 })).toEqual([]);
   });
 
+  it("engaged viewer in bed at night after a long day of scrolling: still not interrupted", () => {
+    expect(
+      run({
+        entry: "home",
+        hour: 23,
+        stillInDark: true,
+        dailyMinBefore: 90,
+        dwell: () => 14_000,
+        engages: (i) => i % 3 === 0,
+        minutes: 30,
+      }),
+    ).toEqual([]);
+  });
+
   it("engaged viewer watching reels through and liking some: not interrupted in 30 minutes", () => {
     expect(
       run({
@@ -171,20 +197,33 @@ describe("scenario evals", () => {
     ).toEqual([]);
   });
 
-  it("came to reply to a message, slid into fast passive scrolling: paused soon after the 3-minute floor", () => {
+  it("nothing is ever interrupted before 10 minutes, however strong the signals", () => {
+    const [first] = run({
+      entry: "dm",
+      hour: 23,
+      dailyMinBefore: 90,
+      stillInDark: true,
+      dwell: () => 800,
+      minutes: 30,
+    });
+    expect(MIN_FEED_MS).toBe(10 * MIN);
+    expect(first).toBeGreaterThanOrEqual(10);
+  });
+
+  it("came to reply to a message, slid into fast passive scrolling: paused at the 10-minute floor", () => {
     const [first] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
-    expect(first).toBeGreaterThanOrEqual(MIN_FEED_MS / MIN);
-    expect(first).toBeLessThan(5);
+    expect(first).toBeGreaterThanOrEqual(10);
+    expect(first).toBeLessThan(11);
   });
 
   it("opened straight into the feed and switching fast, daytime: paused, but later than intent drift", () => {
     const [drift] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
     const [home] = run({ entry: "home", hour: 14, dwell: fastBored, minutes: 30 });
     expect(home).toBeGreaterThan(drift!);
-    expect(home).toBeLessThan(15);
+    expect(home).toBeLessThan(16);
   });
 
-  it("the same pattern at night, after an hour of scrolling today, pauses at the 3-minute floor", () => {
+  it("the same pattern at night, after an hour of scrolling today, pauses at the 10-minute floor", () => {
     const [first] = run({
       entry: "home",
       hour: 23,
@@ -233,7 +272,7 @@ describe("pause message", () => {
 describe("session flow", () => {
   it("swiping is blocked while a pause is showing", () => {
     let s: SessionState = createSession(1, 0, { entry: "dm", dailyMinBefore: 90 });
-    for (let i = 0; i < 400 && currentItem(s)?.kind !== "pause"; i++) {
+    for (let i = 0; i < 2000 && currentItem(s)?.kind !== "pause"; i++) {
       s = sessionReducer(s, { type: "tick", dtMs: 1000, speed: 1 });
       s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 23 });
     }

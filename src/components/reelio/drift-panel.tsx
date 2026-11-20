@@ -102,6 +102,7 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
     exportLog,
     setEntry,
     setDailyMinBefore,
+    setStillInDark,
   } = session;
   const [open, setOpen] = useState(false);
 
@@ -201,9 +202,7 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
                 </span>
                 {" · "}
                 {p.detail}
-                {p.key === "switching" &&
-                  live &&
-                  ` · this one ${(currentDwellMs / 1000).toFixed(1)} s`}
+                {p.key === "skips" && live && ` · this one ${(currentDwellMs / 1000).toFixed(1)} s`}
               </p>
             </li>
           ))}
@@ -293,6 +292,19 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
               checked={simulateNight}
               onCheckedChange={setSimulateNight}
               aria-label="Pretend it's 11 pm"
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-3 text-[14px]">
+            <span>
+              Lying still in a dark room
+              <span className="block text-[12px] text-muted-foreground">
+                What the motion and light sensors would report in bed
+              </span>
+            </span>
+            <Switch
+              checked={state.stillInDark}
+              onCheckedChange={setStillInDark}
+              aria-label="Lying still in a dark room"
             />
           </label>
         </div>

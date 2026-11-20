@@ -90,6 +90,10 @@ export function useReelioSession() {
     (entry: EntryContext) => dispatch({ type: "setContext", entry }),
     [],
   );
+  const setStillInDark = useCallback(
+    (stillInDark: boolean) => dispatch({ type: "setContext", stillInDark }),
+    [],
+  );
   const setDailyMinBefore = useCallback(
     (dailyMinBefore: number) => dispatch({ type: "setContext", dailyMinBefore }),
     [],
@@ -105,6 +109,7 @@ export function useReelioSession() {
         hour,
         entry: state.entry,
         dailyMinBefore: state.dailyMinBefore,
+        stillInDark: state.stillInDark,
         currentDwellMs: onReel ? currentDwellMs : 0,
       }),
     [
@@ -113,6 +118,7 @@ export function useReelioSession() {
       state.engaged,
       state.entry,
       state.dailyMinBefore,
+      state.stillInDark,
       hour,
       onReel,
       currentDwellMs,
@@ -165,6 +171,7 @@ export function useReelioSession() {
     engage,
     setEntry,
     setDailyMinBefore,
+    setStillInDark,
     exportLog,
   };
 }

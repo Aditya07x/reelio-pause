@@ -53,6 +53,8 @@ export interface SessionState {
   entry: EntryContext;
   /** Minutes already spent in short-video feeds today, before this session. */
   dailyMinBefore: number;
+  /** Motion and light sensors agree the phone is held still in a dark room. */
+  stillInDark: boolean;
   keptGoing: boolean;
   pauseCount: number;
   summary: { ms: number; reels: number } | null;
@@ -65,7 +67,7 @@ export type SessionAction =
   | { type: "tick"; dtMs: number; speed: number }
   | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null; at?: number }
   | { type: "engage"; id: number }
-  | { type: "setContext"; entry?: EntryContext; dailyMinBefore?: number }
+  | { type: "setContext"; entry?: EntryContext; dailyMinBefore?: number; stillInDark?: boolean }
   | { type: "keepGoing" }
   | { type: "close" }
   | { type: "start" }
@@ -81,7 +83,7 @@ function withLookahead(items: FeedItem[], index: number, nextReelId: number) {
 export function createSession(
   sessionNumber = 1,
   firstReelId = 0,
-  context: { entry?: EntryContext; dailyMinBefore?: number } = {},
+  context: { entry?: EntryContext; dailyMinBefore?: number; stillInDark?: boolean } = {},
 ): SessionState {
   const { items, nextReelId } = withLookahead([], 0, firstReelId);
   return {
@@ -100,6 +102,7 @@ export function createSession(
     lastPauseAtMs: null,
     entry: context.entry ?? "home",
     dailyMinBefore: context.dailyMinBefore ?? 0,
+    stillInDark: context.stillInDark ?? false,
     keptGoing: false,
     pauseCount: 0,
     summary: null,
@@ -141,6 +144,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         hour: a.hour,
         entry: s.entry,
         dailyMinBefore: s.dailyMinBefore,
+        stillInDark: s.stillInDark,
       });
       let streak = nextStreak(s.streak, score);
       let items = s.items;
@@ -203,6 +207,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         ...s,
         entry: a.entry ?? s.entry,
         dailyMinBefore: a.dailyMinBefore ?? s.dailyMinBefore,
+        stillInDark: a.stillInDark ?? s.stillInDark,
       };
 
     case "keepGoing": {
@@ -227,6 +232,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       const next = createSession(s.sessionNumber + 1, s.nextReelId, {
         entry: s.entry,
         dailyMinBefore: s.dailyMinBefore + s.sessionMs / 60000,
+        stillInDark: s.stillInDark,
       });
       return { ...next, history: s.history };
     }

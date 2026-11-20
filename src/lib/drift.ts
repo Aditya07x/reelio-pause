@@ -23,7 +23,7 @@ export const DEMO_SPEED = 10;
 /** No swipe for this long (real time) pauses the session clock: the person has stopped scrolling. */
 export const IDLE_MS = 60_000;
 /** Never interrupt before this much time in the feed: quick checks are left alone. */
-export const MIN_FEED_MS = 3 * 60_000;
+export const MIN_FEED_MS = 10 * 60_000;
 /** At most one pause per this much feed time, to avoid desensitisation. */
 export const COOLDOWN_MS = 5 * 60_000;
 /** Typical social media session length, used only as a reference in copy (Ahmed et al. 2026). */
@@ -50,6 +50,8 @@ export interface DriftInput {
   dailyMinBefore?: number;
   /** Time on the card currently on screen. Once longer than a fast swipe it counts as a (slow) sample. */
   currentDwellMs?: number;
+  /** Motion and light sensors agree the phone is held still in a dark room. */
+  stillInDark?: boolean;
 }
 
 export interface DriftPart {
@@ -93,6 +95,7 @@ export function computeDrift({
   entry = "home",
   dailyMinBefore = 0,
   currentDwellMs = 0,
+  stillInDark = false,
 }: DriftInput): DriftResult {
   const feedMin = sessionMs / 60000;
 
@@ -108,30 +111,32 @@ export function computeDrift({
   const passiveShare = m ? recentEng.filter((e) => !e).length / m : 0;
 
   const f = {
-    intent: intentFactor(entry, feedMin),
-    switching: clamp(fastShare / 0.5) * confidence,
-    passive: ramp(passiveShare, 0.5, 0.9) * Math.min(1, m / CONFIDENT_AFTER),
+    entry: intentFactor(entry, feedMin),
+    skips: clamp(fastShare / 0.5) * confidence,
+    interaction: ramp(passiveShare, 0.5, 0.9) * Math.min(1, m / CONFIDENT_AFTER),
     time: ramp(feedMin, 2, 20),
     night: isNight(hour) ? 1 : 0,
+    bed: stillInDark ? 1 : 0,
     load: clamp(dailyMinBefore / 90),
   } satisfies Record<FactorKey, number>;
 
   const purpose = ENTRIES.find((e) => e.key === entry)?.purpose;
   const details: Record<FactorKey, string> = {
-    intent:
+    entry:
       entry === "home"
-        ? "opened straight into the feed"
+        ? "home screen → feed, nothing else opened"
         : entry === "work"
-          ? "came from a work or study app"
+          ? "switched over from a work or study app"
           : feedMin < 1
             ? `came to ${purpose}`
-            : `came to ${purpose} · ${feedMin.toFixed(1)} min in the feed since`,
-    switching: n ? `${fastCount} of last ${n} swiped away in under 2 s` : "waiting for a few reels",
-    passive: m
-      ? `${Math.round(passiveShare * 100)}% of recent reels with no like or save`
+            : `came to ${purpose} · in the Reels feed for ${feedMin.toFixed(1)} min since`,
+    skips: n ? `${fastCount} of last ${n} reels left in under 2 s` : "waiting for a few reels",
+    interaction: m
+      ? `${Math.round(passiveShare * 100)}% of last ${m} reels with no like, save or share`
       : "waiting for a few reels",
-    time: `${feedMin.toFixed(1)} min in the feed · a typical session is ~1.5 min`,
+    time: `${feedMin.toFixed(1)} min · a typical session is ~1.5 min`,
     night: isNight(hour) ? "between 9 pm and 7 am" : "daytime",
+    bed: stillInDark ? "phone still, room dark" : "moving or in light",
     load: `${Math.round(dailyMinBefore)} min of short video earlier today`,
   };
 

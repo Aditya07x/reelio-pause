@@ -5,6 +5,8 @@ import {
   FACTORS,
   INTERRUPT_RULES,
   LEFT_OUT,
+  SIGNAL_AUDIT,
+  type AuditVerdict,
   WEIGHT_TOTAL,
   type Source,
   type Strength,
@@ -18,12 +20,18 @@ export const Route = createFileRoute("/assumptions")({
       {
         name: "description",
         content:
-          "The six behavioural factors behind Reelio's drift score, the research behind each, and what is still a guess.",
+          "The behavioural signals behind Reelio's drift score, the research behind each, and what is still a guess.",
       },
     ],
   }),
   component: AssumptionsPage,
 });
+
+const VERDICT_STYLE: Record<AuditVerdict, string> = {
+  used: "bg-calm/40 text-foreground",
+  later: "bg-drift/40 text-foreground",
+  "not used": "bg-foreground/10 text-muted-foreground",
+};
 
 const STRENGTH_STYLE: Record<Strength, string> = {
   strong: "bg-calm/40 text-foreground",
@@ -97,7 +105,7 @@ function AssumptionsPage() {
         </section>
 
         <section className="mt-12">
-          <h2 className="font-soft text-[28px]">The six signals</h2>
+          <h2 className="font-soft text-[28px]">The {FACTORS.length} signals</h2>
           <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
             The strongest single finding: in a 2026 field study of 1,445 sessions, the gap between
             intended and actual use predicted regret about twice as strongly as session length. That
@@ -138,6 +146,12 @@ function AssumptionsPage() {
                     <dt className="font-medium">On a real phone</dt>
                     <dd className="text-muted-foreground">{f.onDevice}</dd>
                   </div>
+                  <div>
+                    <dt className="font-medium">Reelio already logs</dt>
+                    <dd className="font-mono text-[11.5px] text-muted-foreground">
+                      {f.reelioColumns.join(", ")}
+                    </dd>
+                  </div>
                 </dl>
                 <Sources sources={f.sources} />
               </article>
@@ -155,6 +169,51 @@ function AssumptionsPage() {
                 <Sources sources={r.sources} />
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="font-soft text-[28px]">All 100 logged signals, audited</h2>
+          <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">
+            The Reelio Android app logs about 100 signals for every reel. Each group was checked
+            against the research above. Only signals with published evidence drive the score; the
+            rest wait for data or are dropped.
+          </p>
+          <div className="mt-5 overflow-hidden rounded-[1.5rem] bg-card shadow-soft">
+            <table className="w-full text-left text-[13px]">
+              <thead className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                <tr className="border-b border-foreground/8">
+                  <th className="px-5 py-3 font-medium">Group</th>
+                  <th className="px-3 py-3 font-medium">Verdict</th>
+                  <th className="hidden px-3 py-3 font-medium md:table-cell">Columns</th>
+                  <th className="px-5 py-3 font-medium">Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SIGNAL_AUDIT.map((a) => (
+                  <tr
+                    key={a.group}
+                    className="border-b border-foreground/5 align-top last:border-0"
+                  >
+                    <td className="px-5 py-3 font-medium">{a.group}</td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={cn(
+                          "whitespace-nowrap rounded-full px-2 py-0.5 text-[11px]",
+                          VERDICT_STYLE[a.verdict],
+                        )}
+                      >
+                        {a.verdict}
+                      </span>
+                    </td>
+                    <td className="hidden max-w-[260px] px-3 py-3 font-mono text-[11px] text-muted-foreground md:table-cell">
+                      {a.columns}
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground">{a.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
