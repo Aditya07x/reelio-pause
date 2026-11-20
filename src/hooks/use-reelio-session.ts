@@ -3,6 +3,7 @@ import {
   computeBaseline,
   minutesToday,
   sampleHistory,
+  typicalWeek,
   type SamplePersona,
   type SessionSummary,
 } from "@/lib/baseline";
@@ -97,7 +98,12 @@ export function useReelioSession() {
 
   // Load this browser's history after mount (never during server render).
   useEffect(() => {
-    const h = loadHistory();
+    let h = loadHistory();
+    // First visit: a made-up week, so the Reelio app has sessions and graphs to explore.
+    if (h.length === 0) {
+      h = typicalWeek();
+      saveHistory(h);
+    }
     setHistoryState(h);
     dispatch({
       type: "setContext",
@@ -213,6 +219,11 @@ export function useReelioSession() {
     },
     [setHistory],
   );
+  const loadTypicalWeek = useCallback(() => {
+    const h = typicalWeek();
+    setHistory(h);
+    dispatch({ type: "setContext", baseline: computeBaseline(h), dailyMinBefore: minutesToday(h) });
+  }, [setHistory]);
   const clearHistory = useCallback(() => {
     setHistory([]);
     dispatch({ type: "setContext", baseline: computeBaseline([]), dailyMinBefore: 0 });
@@ -325,6 +336,7 @@ export function useReelioSession() {
     history,
     baseline,
     loadSample,
+    loadTypicalWeek,
     clearHistory,
   };
 }

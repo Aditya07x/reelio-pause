@@ -11,68 +11,11 @@ import {
 import type { ReelioSession } from "@/hooks/use-reelio-session";
 import { PauseOverlay } from "./pause-overlay";
 import { ReelCard } from "./reel-card";
-import { MoodFace } from "./mood-face";
 
 
 /** Short drags under this are treated as taps, never as swipes. */
 const MIN_FLICK_PX = 24;
 
-/** Small Reelio chip at the top of the feed while step 1 or 2 is on. */
-function LadderChip({ level, minutes }: { level: Level; minutes: number }) {
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    setOpen(true);
-    const id = window.setTimeout(() => setOpen(false), 4500);
-    return () => window.clearTimeout(id);
-  }, [level]);
-  if (level < 1) return null;
-
-  const tone =
-    level === 1
-      ? { dot: "#9EB384", bg: "#F0F4EC" }
-      : level === 2
-        ? { dot: "#C99A7F", bg: "#FAF2EC" }
-        : { dot: "#B88A8E", bg: "#FAF0F2" };
-  const title =
-    level === 1 ? "Scrolling slowed" : minutes >= 1 ? `${minutes} min in Reels` : level === 2 ? "Colour off" : "Paused once";
-  const detail =
-    level === 1
-      ? "You've been skipping fast for a while. Swipes take a little more effort now."
-      : level === 2
-        ? "Colour is off for now. It comes back when you slow down."
-        : "If this keeps up, Reelio pauses again in 5 minutes.";
-
-  return (
-    <div
-      key={level}
-      className="pointer-events-none absolute inset-x-0 top-[86px] z-20 flex justify-center px-4 animate-chip"
-      aria-live="polite"
-    >
-      <div
-        className="flex max-w-full items-center gap-2.5 rounded-[18px] border-[1.5px] border-[rgba(26,22,18,0.06)] py-1.5 pl-1.5 pr-3.5 font-nunito text-[#2D3436] shadow-paper-lift transition-all duration-500"
-        style={{ background: tone.bg }}
-      >
-        <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-white/70">
-          {level >= 2 ? (
-            <MoodFace score={level === 2 ? 55 : 72} size={30} />
-          ) : (
-            <img src="/reelio-logo-128.png" alt="" className="size-7" />
-          )}
-        </span>
-        <span className="min-w-0">
-          <span className="block font-grotesk text-[13px] font-bold leading-tight">
-            Reelio · {title}
-          </span>
-          {open && (
-            <span className="block max-w-[240px] text-[11.5px] leading-snug text-[#545B5E] animate-fade">
-              {detail}
-            </span>
-          )}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export function Feed({ session }: { session: ReelioSession }) {
   const { state, step, keepGoing, close, demoSpeed, engage } = session;
@@ -217,7 +160,6 @@ export function Feed({ session }: { session: ReelioSession }) {
         })}
       </div>
 
-      {!blocked && <LadderChip level={level} minutes={Math.round(state.sessionMs / 60000)} />}
 
       {/* With friction on, show how far a swipe still has to go. */}
       {dragging && level >= 1 && pull > 0.05 && (

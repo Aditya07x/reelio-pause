@@ -6,7 +6,7 @@
 //   pressed "Keep going"     → exit_conflict
 //   gap since last session   → rapid_reentry
 //   skip rate                → scroll_automaticity
-//   no interaction           → dwell_collapse
+//   how you engage           → dwell_collapse
 //   swiping back up          → rewatch_compulsion
 //   night + lying in the dark→ environment
 

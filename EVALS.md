@@ -101,6 +101,19 @@ Both are open, not fixed.
 | After Keep going | Feed stays grayscale with a "pauses again in 5 minutes" chip. The next pause has a 5 s wait. |
 | Layout | Phones scale uniformly at 1366×640, 1440×900, 1920×1080 and 1024×700; tabs below 1280 px; phone width 390 px |
 
+## 4b. End-to-end check (fresh browser, scripted)
+
+| Step | Result |
+|---|---|
+| First visit | 38 made-up sessions over 8 days load, plus short checks earlier today, across all four states (16 mindful, 8 aware, 10 hooked, 4 doom) |
+| Reelio app | Receives all sessions. Its Monitor, Calendar and Dashboard (timeline, weekly trend, heatmap, attention radar) all render with data |
+| A drifting session ("Set it up", then fast swipes) | Steps 1, 2 and 3 in order; the pause screen at the 14-minute mark |
+| Keep going, then End session | Saved as session 39: 16 min, 194 reels, peak 89 (doom), 1 pause; top drivers are fast skipping, no likes and pressing Keep going |
+| End screen | "Reelio stepped in: heavier scroll, then colour drains, then full-screen pause", plus "Was that time well spent?" (session 1 of 5) |
+| "Not really" | Saved on that session; the Reelio app now shows 39 sessions |
+| Start a new session | Session 2; baseline rebuilt from all 39 sessions |
+| Errors | None |
+
 ## 5. How testers can see the ladder in the demo
 
 - **Quickest, by hand:** in the column beside the Instagram phone, tap step 1, then 2, then 3. Each one switches on at once: heavier swipes, then grayscale, then the pause screen. A step can't be skipped, and "Switch all off" resets. Steps switched on by hand are marked "by hand" and don't depend on the score.

@@ -128,8 +128,25 @@ export function LadderRail({
   session: ReelioSession;
   layout?: "column" | "row";
 }) {
-  const { state, forceLevel, resetLadder } = session;
+  const { state, forceLevel, resetLadder, close, start } = session;
   const live = state.phase === "feed";
+  const sessionButton = live ? (
+    <button
+      type="button"
+      onClick={close}
+      className="rounded-full bg-[#2D3436] px-3.5 py-1.5 font-grotesk text-[12px] font-bold text-[#FAF8F5] shadow-paper hover:bg-[#1A1612]"
+    >
+      End session
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={start}
+      className="rounded-full bg-[#6E93A9] px-3.5 py-1.5 font-grotesk text-[12px] font-bold text-white shadow-paper hover:bg-[#5B7F95]"
+    >
+      Start a new session
+    </button>
+  );
 
   if (layout === "row") {
     return (
@@ -171,15 +188,18 @@ export function LadderRail({
             );
           })}
         </div>
-        {state.level > 0 && live && (
-          <button
-            type="button"
-            onClick={resetLadder}
-            className="text-[11px] font-semibold text-[#4F7389] underline underline-offset-2"
-          >
-            Switch all off
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {sessionButton}
+          {state.level > 0 && live && (
+            <button
+              type="button"
+              onClick={resetLadder}
+              className="text-[11px] font-semibold text-[#4F7389] underline underline-offset-2"
+            >
+              Switch all off
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -297,6 +317,15 @@ export function LadderRail({
           On its own, Reelio never steps in before 10 minutes in Reels.
         </p>
       )}
+
+      <div className="flex flex-col gap-1.5 border-t border-[#E4DED4] pt-3">
+        <div className="self-start">{sessionButton}</div>
+        <p className="text-[11px] leading-snug text-[#6A6A6A]">
+          {live
+            ? `Session ${state.sessionNumber}. Ending it saves it to the Reelio app next door.`
+            : "Saved. Open the Reelio app's sessions to find it."}
+        </p>
+      </div>
     </aside>
   );
 }

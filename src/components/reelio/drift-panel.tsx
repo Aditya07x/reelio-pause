@@ -260,6 +260,7 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
     setStillInDark,
     baseline,
     loadSample,
+    loadTypicalWeek,
     clearHistory,
   } = session;
   const st = stateFor(drift.score);
@@ -429,10 +430,14 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
             ))}
           </div>
           <p className="mt-1.5 text-[10.5px] text-r-ink3">
-            Sample users are 14 days of made-up history, not real people.
+            The app starts with 8 days of made-up sessions so there is something to explore. The
+            sample users are 14 made-up days each. None of it is a real person.{" "}
+            <button type="button" onClick={loadTypicalWeek} className="underline underline-offset-2">
+              Back to the sample week
+            </button>
             {baseline.n > 0 && (
               <>
-                {" "}
+                {" · "}
                 <button type="button" onClick={clearHistory} className="underline underline-offset-2">
                   Clear history
                 </button>

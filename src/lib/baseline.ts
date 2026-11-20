@@ -214,3 +214,96 @@ export function sampleHistory(persona: SamplePersona, now = Date.now()): Session
   }
   return out.sort((a, b) => a.startedAt - b.startedAt);
 }
+
+const stateOf = (peak: number): SessionSummary["state"] =>
+  peak >= 70 ? "doom" : peak >= 45 ? "hooked" : peak >= 25 ? "aware" : "mindful";
+
+/**
+ * Eight days of a made-up, ordinary week: mostly short checks, some medium sessions, and a
+ * long evening scroll most days. Loaded on first visit so the Reelio app has graphs to show.
+ */
+export function typicalWeek(now = Date.now(), days = 8): SessionSummary[] {
+  const r = rng(47);
+  const out: SessionSummary[] = [];
+  let id = 1;
+  for (let day = days; day >= 1; day--) {
+    const base = new Date(now - day * 86_400_000);
+    const count = 4 + Math.floor(r() * 4);
+    for (let i = 0; i < count; i++) {
+      const kind = r();
+      const long = kind > 0.82;
+      const medium = !long && kind > 0.52;
+      const hour = long
+        ? 21 + Math.floor(r() * 3)
+        : medium
+          ? 12 + Math.floor(r() * 10)
+          : 8 + Math.floor(r() * 14);
+      const minutes = long ? 14 + r() * 22 : medium ? 4 + r() * 8 : 0.6 + r() * 2.4;
+      const peak = long ? 62 + r() * 30 : medium ? 28 + r() * 32 : 8 + r() * 26;
+      const skipRate = long ? 0.4 + r() * 0.3 : medium ? 0.25 + r() * 0.2 : 0.1 + r() * 0.15;
+      const pauses = peak >= 70 && minutes >= 14 ? 1 : 0;
+      const t = new Date(base);
+      t.setHours(hour % 24, Math.floor(r() * 60), 0, 0);
+      const askedNow = id % 5 === 1;
+      out.push({
+        id: id++,
+        startedAt: t.getTime(),
+        minutes: Math.round(minutes * 10) / 10,
+        reels: Math.round(minutes * (long ? 15 : 10)),
+        skipRate: Math.round(skipRate * 100) / 100,
+        interactionRate: long ? 0.05 : medium ? 0.15 : 0.3,
+        hour: hour % 24,
+        entry: long ? "home" : r() < 0.4 ? "notification" : r() < 0.5 ? "dm" : "home",
+        peakScore: Math.round(peak),
+        state: stateOf(peak),
+        pauses,
+        checkIn: askedNow ? (peak >= 60 ? "no" : "yes") : null,
+        drivers: {
+          session_length: Math.min(1, minutes / 30),
+          exit_conflict: pauses ? 0.5 + r() * 0.3 : r() * 0.15,
+          rapid_reentry: long ? r() * 0.2 : 0.2 + r() * 0.5,
+          scroll_automaticity: Math.min(1, skipRate * 1.4),
+          dwell_collapse: long ? 0.6 + r() * 0.4 : r() * 0.4,
+          rewatch_compulsion: r() * 0.25,
+          environment: hour % 24 >= 21 ? 0.67 + r() * 0.33 : 0,
+        },
+      });
+    }
+  }
+  // Earlier today: a few short checks, all well before now, so "Today" views are not empty.
+  const today = new Date(now);
+  const hoursSoFar = today.getHours();
+  for (const [h, m, mins, peak] of [
+    [8, 12, 1.4, 14],
+    [11, 40, 2.6, 22],
+    [14, 5, 6.5, 41],
+  ] as const) {
+    if (h >= hoursSoFar) break;
+    const t = new Date(now);
+    t.setHours(h, m, 0, 0);
+    out.push({
+      id: id++,
+      startedAt: t.getTime(),
+      minutes: mins,
+      reels: Math.round(mins * 10),
+      skipRate: peak > 30 ? 0.3 : 0.15,
+      interactionRate: 0.25,
+      hour: h,
+      entry: h === 8 ? "notification" : "dm",
+      peakScore: peak,
+      state: stateOf(peak),
+      pauses: 0,
+      checkIn: null,
+      drivers: {
+        session_length: mins / 30,
+        exit_conflict: 0,
+        rapid_reentry: 0.3,
+        scroll_automaticity: peak > 30 ? 0.4 : 0.15,
+        dwell_collapse: 0.2,
+        rewatch_compulsion: 0.05,
+        environment: 0,
+      },
+    });
+  }
+  return out.sort((a, b) => a.startedAt - b.startedAt);
+}
