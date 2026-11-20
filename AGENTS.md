@@ -28,3 +28,8 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Drift, interruption and check-in thresholds live only in `src/lib/drift.ts`; session flow is a pure reducer in `src/lib/session.ts`. Why: product rules stay testable in `src/lib/drift.test.ts` and UI never re-derives them.
+- Reelio is front-end only; session state lives in memory via `useReelioSession`. Why: it's a prototype with no accounts or persistence yet.

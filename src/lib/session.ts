@@ -1,0 +1,148 @@
+import {
+  computeDrift,
+  interruptionWaitMs,
+  nextStreak,
+  shouldCheckIn,
+  shouldInterrupt,
+} from "./drift";
+
+export type ReelItem = { kind: "reel"; id: number };
+export type PauseItem = {
+  kind: "pause";
+  id: string;
+  waitMs: number;
+  sessionMs: number;
+  reels: number;
+};
+export type FeedItem = ReelItem | PauseItem;
+
+export type CheckInAnswer = "yes" | "no";
+
+export interface SessionState {
+  phase: "feed" | "ended";
+  sessionNumber: number;
+  items: FeedItem[];
+  index: number;
+  nextReelId: number;
+  sessionMs: number;
+  dwells: number[];
+  streak: number;
+  keptGoing: boolean;
+  pauseCount: number;
+  summary: { ms: number; reels: number } | null;
+  askCheckIn: boolean;
+  checkIn: CheckInAnswer | null;
+  history: { session: number; answer: CheckInAnswer }[];
+}
+
+export type SessionAction =
+  | { type: "tick"; dtMs: number; speed: number }
+  | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null }
+  | { type: "keepGoing" }
+  | { type: "close" }
+  | { type: "start" }
+  | { type: "answer"; answer: CheckInAnswer };
+
+function withLookahead(items: FeedItem[], index: number, nextReelId: number) {
+  const out = [...items];
+  let id = nextReelId;
+  while (out.length <= index + 1) out.push({ kind: "reel", id: id++ });
+  return { items: out, nextReelId: id };
+}
+
+export function createSession(sessionNumber = 1, firstReelId = 0): SessionState {
+  const { items, nextReelId } = withLookahead([], 0, firstReelId);
+  return {
+    phase: "feed",
+    sessionNumber,
+    items,
+    index: 0,
+    nextReelId,
+    sessionMs: 0,
+    dwells: [],
+    streak: 0,
+    keptGoing: false,
+    pauseCount: 0,
+    summary: null,
+    askCheckIn: false,
+    checkIn: null,
+    history: [],
+  };
+}
+
+export function currentItem(s: SessionState) {
+  return s.items[s.index];
+}
+
+export function canStep(s: SessionState, dir: 1 | -1) {
+  if (s.phase !== "feed") return false;
+  if (currentItem(s)?.kind === "pause") return false;
+  if (dir < 0 && s.index === 0) return false;
+  return true;
+}
+
+export function reelsSeen(s: SessionState) {
+  return s.dwells.length + (currentItem(s)?.kind === "reel" ? 1 : 0);
+}
+
+export function sessionReducer(s: SessionState, a: SessionAction): SessionState {
+  switch (a.type) {
+    case "tick":
+      if (s.phase !== "feed") return s;
+      return { ...s, sessionMs: s.sessionMs + a.dtMs * a.speed };
+
+    case "step": {
+      if (!canStep(s, a.dir)) return s;
+      const dwells = [...s.dwells, a.dwellMs];
+      const { score } = computeDrift({ sessionMs: s.sessionMs, dwellsMs: dwells, hour: a.hour });
+      let streak = nextStreak(s.streak, score);
+      let items = s.items;
+      let pauseCount = s.pauseCount;
+      if (a.dir > 0 && shouldInterrupt(streak)) {
+        const pause: PauseItem = {
+          kind: "pause",
+          id: `pause-${s.sessionNumber}-${pauseCount}`,
+          waitMs: interruptionWaitMs(s.keptGoing),
+          sessionMs: s.sessionMs,
+          reels: dwells.length,
+        };
+        items = [...items.slice(0, s.index + 1), pause, ...items.slice(s.index + 1)];
+        streak = 0;
+        pauseCount += 1;
+      }
+      const index = s.index + a.dir;
+      const look = withLookahead(items, index, s.nextReelId);
+      return { ...s, ...look, index, dwells, streak, pauseCount };
+    }
+
+    case "keepGoing": {
+      if (s.phase !== "feed" || currentItem(s)?.kind !== "pause") return s;
+      const items = s.items.filter((_, i) => i !== s.index);
+      const look = withLookahead(items, s.index, s.nextReelId);
+      return { ...s, ...look, keptGoing: true };
+    }
+
+    case "close":
+      if (s.phase !== "feed") return s;
+      return {
+        ...s,
+        phase: "ended",
+        summary: { ms: s.sessionMs, reels: reelsSeen(s) },
+        askCheckIn: shouldCheckIn(s.sessionNumber),
+        checkIn: null,
+      };
+
+    case "start": {
+      const next = createSession(s.sessionNumber + 1, s.nextReelId);
+      return { ...next, history: s.history };
+    }
+
+    case "answer":
+      if (!s.askCheckIn || s.checkIn) return s;
+      return {
+        ...s,
+        checkIn: a.answer,
+        history: [...s.history, { session: s.sessionNumber, answer: a.answer }],
+      };
+  }
+}
