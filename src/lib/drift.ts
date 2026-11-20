@@ -364,7 +364,7 @@ export function formatInterruption(
   const minutes = Math.max(1, Math.round(sessionMs / 60000));
   const purpose = ENTRIES.find((e) => e.key === entry)?.purpose ?? null;
   return {
-    headline: `${minutes} min · ~${reels} reels.`,
+    headline: reels > 0 ? `${minutes} min · ~${reels} reels.` : `${minutes} min in Reels.`,
     // Remind of the original purpose when there was one: intention reminders beat restriction (Ahmed et al. 2026).
     sub: purpose ? `You came here to ${purpose}.` : "Is this still what you want to be doing?",
     note: demo ? `Demo clock ×${DEMO_SPEED}: minutes are sped up, reels are real.` : null,
