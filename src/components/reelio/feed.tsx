@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useClips } from "@/lib/clips";
 import { reelFor } from "@/lib/feed";
 import { currentItem } from "@/lib/session";
 import type { ReelioSession } from "@/hooks/use-reelio-session";
@@ -9,13 +10,14 @@ const SWIPE_PX = 56;
 const WHEEL_LOCK_MS = 650;
 
 export function Feed({ session }: { session: ReelioSession }) {
-  const { state, step, keepGoing, close } = session;
+  const { state, step, keepGoing, close, demoSpeed } = session;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startY = useRef<number | null>(null);
   const wheelAcc = useRef(0);
   const wheelLock = useRef(0);
   const blocked = currentItem(state)?.kind === "pause";
+  const clips = useClips();
 
   // Keyboard: arrows / page keys / j k
   useEffect(() => {
@@ -99,9 +101,15 @@ export function Feed({ session }: { session: ReelioSession }) {
             aria-hidden={rel !== 0}
           >
             {item.kind === "reel" ? (
-              <ReelCard reel={reelFor(item.id)} />
+              <ReelCard reel={reelFor(item.id, clips)} active={rel === 0} />
             ) : (
-              <PauseCard pause={item} active={rel === 0} onClose={close} onKeepGoing={keepGoing} />
+              <PauseCard
+                pause={item}
+                active={rel === 0}
+                demo={demoSpeed}
+                onClose={close}
+                onKeepGoing={keepGoing}
+              />
             )}
           </div>
         );

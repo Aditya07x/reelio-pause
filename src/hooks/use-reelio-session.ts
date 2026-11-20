@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { computeDrift, DEMO_SPEED } from "@/lib/drift";
+import { computeDrift, DEMO_SPEED, IDLE_MS } from "@/lib/drift";
 import { canStep, createSession, sessionReducer, type CheckInAnswer } from "@/lib/session";
 
 const LATE_NIGHT_HOUR = 1;
@@ -10,12 +10,15 @@ export function useReelioSession() {
   const [simulateNight, setSimulateNight] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [currentDwellMs, setCurrentDwellMs] = useState(0);
+  const [idle, setIdle] = useState(false);
 
   const stateRef = useRef(state);
   stateRef.current = state;
   const speedRef = useRef(1);
   speedRef.current = demoSpeed ? DEMO_SPEED : 1;
   const enteredAt = useRef(0);
+  // Last swipe or button press, in real time. Used to stop the session clock when nobody is scrolling.
+  const lastActivity = useRef(0);
 
   const realHour = now ? now.getHours() : null;
   const hour = simulateNight ? LATE_NIGHT_HOUR : realHour;
@@ -25,31 +28,48 @@ export function useReelioSession() {
   useEffect(() => {
     let last = performance.now();
     enteredAt.current = last;
+    lastActivity.current = last;
     setNow(new Date());
     const id = window.setInterval(() => {
       const t = performance.now();
       const dt = t - last;
       last = t;
-      dispatch({ type: "tick", dtMs: dt, speed: speedRef.current });
+      const isIdle = t - lastActivity.current > IDLE_MS;
+      setIdle(isIdle);
+      // While idle the clock stands still: session length should count scrolling, not a phone on a desk.
+      dispatch({ type: "tick", dtMs: dt, speed: isIdle ? 0 : speedRef.current });
       setCurrentDwellMs(t - enteredAt.current);
       setNow(new Date());
     }, 200);
     return () => window.clearInterval(id);
   }, []);
 
+  const markActive = () => {
+    const t = performance.now();
+    lastActivity.current = t;
+    setIdle(false);
+    return t;
+  };
+
+  const resetDwell = () => {
+    enteredAt.current = markActive();
+    setCurrentDwellMs(0);
+  };
+
   const step = useCallback((dir: 1 | -1) => {
     if (!canStep(stateRef.current, dir)) return false;
-    const t = performance.now();
-    dispatch({ type: "step", dir, dwellMs: t - enteredAt.current, hour: hourRef.current });
+    const t = markActive();
+    dispatch({
+      type: "step",
+      dir,
+      dwellMs: t - enteredAt.current,
+      hour: hourRef.current,
+      at: Date.now(),
+    });
     enteredAt.current = t;
     setCurrentDwellMs(0);
     return true;
   }, []);
-
-  const resetDwell = () => {
-    enteredAt.current = performance.now();
-    setCurrentDwellMs(0);
-  };
 
   const keepGoing = useCallback(() => {
     dispatch({ type: "keepGoing" });
@@ -62,10 +82,38 @@ export function useReelioSession() {
   }, []);
   const answer = useCallback((a: CheckInAnswer) => dispatch({ type: "answer", answer: a }), []);
 
+  const onReel = state.phase === "feed" && state.items[state.index]?.kind === "reel";
   const drift = useMemo(
-    () => computeDrift({ sessionMs: state.sessionMs, dwellsMs: state.dwells, hour }),
-    [state.sessionMs, state.dwells, hour],
+    () =>
+      computeDrift({
+        sessionMs: state.sessionMs,
+        dwellsMs: state.dwells,
+        hour,
+        currentDwellMs: onReel ? currentDwellMs : 0,
+      }),
+    [state.sessionMs, state.dwells, hour, onReel, currentDwellMs],
   );
+
+  /** Download this session's per-card events as JSON (the same rows Replay mode reads). */
+  const exportLog = useCallback(() => {
+    const s = stateRef.current;
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          { session: s.sessionNumber, demoSpeed: speedRef.current, events: s.events },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reelio-session-${s.sessionNumber}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const clock = useMemo(() => {
     if (!now) return "";
@@ -78,6 +126,7 @@ export function useReelioSession() {
     state,
     drift,
     currentDwellMs,
+    idle,
     clock,
     demoSpeed,
     setDemoSpeed,
@@ -88,6 +137,7 @@ export function useReelioSession() {
     close,
     start,
     answer,
+    exportLog,
   };
 }
 

@@ -7,6 +7,8 @@ export const STREAK_TO_INTERRUPT = 5;
 export const HARD_WAIT_MS = 5000;
 export const CHECK_IN_EVERY = 5;
 export const DEMO_SPEED = 10;
+/** No swipe for this long (real time) pauses the session clock: the person has stopped scrolling. */
+export const IDLE_MS = 60_000;
 /** How many recent cards the swipe-based signals look at. */
 export const RECENT_WINDOW = 8;
 /** Cards needed before swipe-based signals count fully. */
@@ -19,6 +21,9 @@ export interface DriftInput {
   dwellsMs: number[];
   hour: number | null;
   baselineMin?: number;
+  /** Time on the card currently on screen. Lingering is the opposite of skimming, so once it is
+   * longer than a fast swipe it counts as a provisional sample and pulls the score down live. */
+  currentDwellMs?: number;
 }
 
 export interface DriftPart {
@@ -55,12 +60,14 @@ export function computeDrift({
   dwellsMs,
   hour,
   baselineMin = BASELINE_MIN,
+  currentDwellMs = 0,
 }: DriftInput): DriftResult {
   const sessionMin = sessionMs / 60000;
   // Reaches full weight at twice the personal baseline.
   const sessionF = clamp(sessionMin / baselineMin / 2);
 
-  const recent = dwellsMs.slice(-RECENT_WINDOW);
+  const samples = currentDwellMs >= FAST_SWIPE_MS ? [...dwellsMs, currentDwellMs] : dwellsMs;
+  const recent = samples.slice(-RECENT_WINDOW);
   const n = recent.length;
   const confidence = Math.min(1, n / CONFIDENT_AFTER);
   const avgDwellSec = n ? recent.reduce((a, b) => a + b, 0) / n / 1000 : 0;
@@ -76,7 +83,7 @@ export function computeDrift({
       label: "Session length",
       points: sessionF * WEIGHTS.session,
       max: WEIGHTS.session,
-      detail: `${sessionMin.toFixed(1)} of your usual ${baselineMin} min`,
+      detail: `${sessionMin.toFixed(1)} min so far · your usual is ${baselineMin} min`,
     },
     {
       key: "dwell",
@@ -101,7 +108,13 @@ export function computeDrift({
     },
   ];
 
-  const score = Math.round(clamp(parts.reduce((a, p) => a + p.points, 0), 0, 100));
+  const score = Math.round(
+    clamp(
+      parts.reduce((a, p) => a + p.points, 0),
+      0,
+      100,
+    ),
+  );
   return { score, parts, avgDwellSec, fastCount, recentCount: n };
 }
 
@@ -123,11 +136,18 @@ export function shouldCheckIn(sessionNumber: number) {
   return (sessionNumber - 1) % CHECK_IN_EVERY === 0;
 }
 
-export function formatInterruption(sessionMs: number, reels: number, baselineMin = BASELINE_MIN) {
+export function formatInterruption(
+  sessionMs: number,
+  reels: number,
+  baselineMin = BASELINE_MIN,
+  demo = false,
+) {
   const minutes = Math.max(1, Math.round(sessionMs / 60000));
   return {
     headline: `${minutes} min · ~${reels} reels.`,
     sub: `Your usual is ${baselineMin} min.`,
+    // Demo speed runs the clock ×10 but not the reel count, so say so instead of showing odd numbers.
+    note: demo ? `Demo clock ×${DEMO_SPEED}: minutes are sped up, reels are real.` : null,
   };
 }
 

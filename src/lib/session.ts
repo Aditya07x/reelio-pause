@@ -18,6 +18,18 @@ export type FeedItem = ReelItem | PauseItem;
 
 export type CheckInAnswer = "yes" | "no";
 
+/** One row per card the user leaves. Same shape the Replay mode and the Android CSV map onto. */
+export interface ReelEvent {
+  index: number;
+  itemId: number;
+  dwellMs: number;
+  direction: "down" | "up";
+  sessionMs: number;
+  hour: number | null;
+  score: number;
+  at: number;
+}
+
 export interface SessionState {
   phase: "feed" | "ended";
   sessionNumber: number;
@@ -26,6 +38,7 @@ export interface SessionState {
   nextReelId: number;
   sessionMs: number;
   dwells: number[];
+  events: ReelEvent[];
   streak: number;
   keptGoing: boolean;
   pauseCount: number;
@@ -37,7 +50,7 @@ export interface SessionState {
 
 export type SessionAction =
   | { type: "tick"; dtMs: number; speed: number }
-  | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null }
+  | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null; at?: number }
   | { type: "keepGoing" }
   | { type: "close" }
   | { type: "start" }
@@ -60,6 +73,7 @@ export function createSession(sessionNumber = 1, firstReelId = 0): SessionState 
     nextReelId,
     sessionMs: 0,
     dwells: [],
+    events: [],
     streak: 0,
     keptGoing: false,
     pauseCount: 0,
@@ -110,9 +124,20 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         streak = 0;
         pauseCount += 1;
       }
+      const left = currentItem(s);
+      const event: ReelEvent = {
+        index: s.index,
+        itemId: left?.kind === "reel" ? left.id : -1,
+        dwellMs: Math.round(a.dwellMs),
+        direction: a.dir > 0 ? "down" : "up",
+        sessionMs: Math.round(s.sessionMs),
+        hour: a.hour,
+        score,
+        at: a.at ?? 0,
+      };
       const index = s.index + a.dir;
       const look = withLookahead(items, index, s.nextReelId);
-      return { ...s, ...look, index, dwells, streak, pauseCount };
+      return { ...s, ...look, index, dwells, events: [...s.events, event], streak, pauseCount };
     }
 
     case "keepGoing": {

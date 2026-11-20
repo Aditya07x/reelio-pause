@@ -1,4 +1,5 @@
 // Generic, brand-free fake content for the vertical feed.
+import { clipFor, type Clip } from "./clips";
 
 export const REEL_COLORS = [
   "var(--reel-peach)",
@@ -12,9 +13,20 @@ export const REEL_COLORS = [
 ] as const;
 
 const HANDLES = [
-  "softmornings", "field.notes", "tiny.studio", "slowcooked", "quietcorner",
-  "paper.and.plum", "ninaplants", "low.tide", "the.daily.walk", "hum.kitchen",
-  "loopsandlines", "cloudlog", "olive.atelier", "small.rituals",
+  "softmornings",
+  "field.notes",
+  "tiny.studio",
+  "slowcooked",
+  "quietcorner",
+  "paper.and.plum",
+  "ninaplants",
+  "low.tide",
+  "the.daily.walk",
+  "hum.kitchen",
+  "loopsandlines",
+  "cloudlog",
+  "olive.atelier",
+  "small.rituals",
 ];
 
 const CAPTIONS = [
@@ -36,7 +48,16 @@ const CAPTIONS = [
   "making tea the long way",
 ];
 
-const TAGS = ["#slowliving", "#tinywins", "#homecooking", "#pov", "#calm", "#weekend", "#cozy", "#walks"];
+const TAGS = [
+  "#slowliving",
+  "#tinywins",
+  "#homecooking",
+  "#pov",
+  "#calm",
+  "#weekend",
+  "#cozy",
+  "#walks",
+];
 
 const SHAPES = ["orb", "dunes", "ribbons"] as const;
 export type ReelShape = (typeof SHAPES)[number];
@@ -68,9 +89,11 @@ export interface ReelContent {
   shares: string;
   colors: [string, string, string, string];
   shape: ReelShape;
+  /** Stock video for this card; undefined means a generated gradient card. */
+  clip?: Clip | undefined;
 }
 
-export function reelFor(id: number): ReelContent {
+export function reelFor(id: number, clips: Clip[] = []): ReelContent {
   const h = hash(id);
   const c = (k: number) => pick(REEL_COLORS, (h >>> (k * 3)) + k * 3);
   const handle = pick(HANDLES, h >>> 4);
@@ -85,5 +108,6 @@ export function reelFor(id: number): ReelContent {
     shares: compact(5 + ((h >>> 8) % 900)),
     colors: [c(0), c(1), c(2), c(3)],
     shape: pick(SHAPES, h >>> 3),
+    clip: clipFor(id, clips),
   };
 }

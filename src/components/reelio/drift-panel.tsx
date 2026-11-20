@@ -16,9 +16,24 @@ import { reelsSeen } from "@/lib/session";
 import type { ReelioSession } from "@/hooks/use-reelio-session";
 
 const MOOD = {
-  calm: { label: "Settled", stroke: "stroke-calm", bg: "bg-calm", text: "Scrolling looks intentional." },
-  drift: { label: "Drifting", stroke: "stroke-drift", bg: "bg-drift", text: "Picking up autopilot signals." },
-  deep: { label: "Deep drift", stroke: "stroke-deep", bg: "bg-deep", text: "This looks like doomscrolling." },
+  calm: {
+    label: "Settled",
+    stroke: "stroke-calm",
+    bg: "bg-calm",
+    text: "Scrolling looks intentional.",
+  },
+  drift: {
+    label: "Drifting",
+    stroke: "stroke-drift",
+    bg: "bg-drift",
+    text: "Picking up autopilot signals.",
+  },
+  deep: {
+    label: "Deep drift",
+    stroke: "stroke-deep",
+    bg: "bg-deep",
+    text: "This looks like doomscrolling.",
+  },
 } as const;
 
 function fmtTime(ms: number) {
@@ -65,8 +80,18 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 export function DriftPanel({ session }: { session: ReelioSession }) {
-  const { state, drift, currentDwellMs, demoSpeed, setDemoSpeed, simulateNight, setSimulateNight, close } =
-    session;
+  const {
+    state,
+    drift,
+    currentDwellMs,
+    idle,
+    demoSpeed,
+    setDemoSpeed,
+    simulateNight,
+    setSimulateNight,
+    close,
+    exportLog,
+  } = session;
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -87,12 +112,20 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
       )}
     >
       <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-3 px-5 py-3.5 text-left no-tap-highlight">
-        <span className={cn("size-2.5 rounded-full transition-colors", mood.bg, live && "animate-pulse")} />
+        <span
+          className={cn(
+            "size-2.5 rounded-full transition-colors",
+            mood.bg,
+            live && "animate-pulse",
+          )}
+        />
         <span className="flex-1 font-soft text-[17px]">How it decides</span>
         <span className="rounded-full bg-foreground/5 px-2.5 py-0.5 text-[13px] font-semibold tabular-nums">
           {drift.score}
         </span>
-        <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
+        />
       </CollapsibleTrigger>
 
       <CollapsibleContent className="max-h-[calc(100svh-10rem)] sm:max-h-[calc(100svh-8rem)] overflow-y-auto px-5 pb-5 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0">
@@ -100,7 +133,9 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
           <ScoreRing score={drift.score} />
           <div>
             <p className="font-soft text-[22px] font-light leading-tight">{mood.label}</p>
-            <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{mood.text}</p>
+            <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+              {live && idle ? "No swipes for a minute. The session clock is paused." : mood.text}
+            </p>
           </div>
         </div>
 
@@ -173,16 +208,28 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
           <label className="flex cursor-pointer items-center justify-between gap-3 text-[14px]">
             <span>
               Demo speed ×10
-              <span className="block text-[12px] text-muted-foreground">Session clock runs ten times faster</span>
+              <span className="block text-[12px] text-muted-foreground">
+                Session clock runs ten times faster
+              </span>
             </span>
-            <Switch checked={demoSpeed} onCheckedChange={setDemoSpeed} aria-label="Demo speed ×10" />
+            <Switch
+              checked={demoSpeed}
+              onCheckedChange={setDemoSpeed}
+              aria-label="Demo speed ×10"
+            />
           </label>
           <label className="flex cursor-pointer items-center justify-between gap-3 text-[14px]">
             <span>
               Pretend it's 1 am
-              <span className="block text-[12px] text-muted-foreground">Try the late-night signal</span>
+              <span className="block text-[12px] text-muted-foreground">
+                Try the late-night signal
+              </span>
             </span>
-            <Switch checked={simulateNight} onCheckedChange={setSimulateNight} aria-label="Pretend it's 1 am" />
+            <Switch
+              checked={simulateNight}
+              onCheckedChange={setSimulateNight}
+              aria-label="Pretend it's 1 am"
+            />
           </label>
         </div>
 
@@ -194,15 +241,31 @@ export function DriftPanel({ session }: { session: ReelioSession }) {
               : `asks “well spent?” 1 in ${CHECK_IN_EVERY}`}
           </span>
           {live && (
-            <Button variant="whisper" size="sm" className="h-8 shrink-0 rounded-full px-3" onClick={close}>
+            <Button
+              variant="whisper"
+              size="sm"
+              className="h-8 shrink-0 rounded-full px-3"
+              onClick={close}
+            >
               End session
             </Button>
           )}
         </div>
+        {state.events.length > 0 && (
+          <button
+            type="button"
+            onClick={exportLog}
+            className="mt-2 text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Download this session's log ({state.events.length} cards)
+          </button>
+        )}
         {state.history.length > 0 && (
           <p className="mt-2 text-[12px] text-muted-foreground">
             Check-ins:{" "}
-            {state.history.map((h) => `#${h.session} ${h.answer === "yes" ? "well spent" : "not really"}`).join(", ")}
+            {state.history
+              .map((h) => `#${h.session} ${h.answer === "yes" ? "well spent" : "not really"}`)
+              .join(", ")}
           </p>
         )}
       </CollapsibleContent>

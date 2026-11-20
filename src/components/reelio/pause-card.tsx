@@ -8,13 +8,15 @@ export function PauseCard({
   active,
   onClose,
   onKeepGoing,
+  demo = false,
 }: {
   pause: PauseItem;
   active: boolean;
+  demo?: boolean;
   onClose: () => void;
   onKeepGoing: () => void;
 }) {
-  const { headline, sub } = formatInterruption(pause.sessionMs, pause.reels);
+  const { headline, sub, note } = formatInterruption(pause.sessionMs, pause.reels, undefined, demo);
   const [remaining, setRemaining] = useState(pause.waitMs);
 
   useEffect(() => {
@@ -41,7 +43,13 @@ export function PauseCard({
           <span className="absolute inset-4 rounded-full bg-reel-butter/80 animate-breathe [animation-delay:-1.2s]" />
           {pause.waitMs > 0 && (
             <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-              <circle cx="50" cy="50" r="46" className="fill-none stroke-foreground/10" strokeWidth="2" />
+              <circle
+                cx="50"
+                cy="50"
+                r="46"
+                className="fill-none stroke-foreground/10"
+                strokeWidth="2"
+              />
               <circle
                 cx="50"
                 cy="50"
@@ -65,16 +73,27 @@ export function PauseCard({
         <p className="mt-3 font-soft text-[20px] font-light italic text-muted-foreground animate-rise [animation-delay:240ms]">
           {sub}
         </p>
+        {note && <p className="mt-3 text-[11px] text-muted-foreground/80">{note}</p>}
       </div>
 
       <div className="flex w-full flex-col gap-2.5 animate-rise [animation-delay:360ms]">
         <p className="mb-2 h-5 text-[13px] text-muted-foreground" aria-live="polite">
-          {locked ? `Take a breath · ${seconds}s` : pause.waitMs > 0 ? "Whenever you're ready." : ""}
+          {locked
+            ? `Take a breath · ${seconds}s`
+            : pause.waitMs > 0
+              ? "Whenever you're ready."
+              : ""}
         </p>
         <Button variant="calm" size="pill" className="w-full" disabled={locked} onClick={onClose}>
           Close
         </Button>
-        <Button variant="quiet" size="pill" className="w-full" disabled={locked} onClick={onKeepGoing}>
+        <Button
+          variant="quiet"
+          size="pill"
+          className="w-full"
+          disabled={locked}
+          onClick={onKeepGoing}
+        >
           Keep going
         </Button>
       </div>

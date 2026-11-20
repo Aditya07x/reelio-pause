@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { computeDrift, formatInterruption, isFastSwipe, shouldCheckIn } from "./drift";
-import { createSession, currentItem as maybeCurrent, sessionReducer, type PauseItem, type SessionState } from "./session";
+import {
+  createSession,
+  currentItem as maybeCurrent,
+  sessionReducer,
+  type PauseItem,
+  type SessionState,
+} from "./session";
 
 const currentItem = (s: SessionState) => maybeCurrent(s)!;
 const waitOf = (s: SessionState) => (currentItem(s) as PauseItem).waitMs;
@@ -25,6 +31,18 @@ describe("drift score", () => {
   it("adds late-night points after 11pm but not in the afternoon", () => {
     expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 1 }), "night")).toBe(15);
     expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14 }), "night")).toBe(0);
+  });
+
+  it("lingering on the current card pulls the score down", () => {
+    const skimming = { sessionMs: 30 * MIN, dwellsMs: Array(8).fill(800), hour: 14 };
+    const before = computeDrift(skimming).score;
+    const lingering = computeDrift({ ...skimming, currentDwellMs: 90_000 }).score;
+    expect(lingering).toBeLessThan(before);
+  });
+
+  it("a card on screen for under 2 s does not count yet", () => {
+    const base = { sessionMs: 30 * MIN, dwellsMs: Array(8).fill(800), hour: 14 };
+    expect(computeDrift({ ...base, currentDwellMs: 1500 }).score).toBe(computeDrift(base).score);
   });
 
   it("stays between 0 and 100", () => {
@@ -83,7 +101,20 @@ describe("interruptions", () => {
     expect(formatInterruption(34 * MIN, 210)).toEqual({
       headline: "34 min · ~210 reels.",
       sub: "Your usual is 9 min.",
+      note: null,
     });
+  });
+
+  it("says when the clock is sped up for the demo", () => {
+    expect(formatInterruption(34 * MIN, 21, 9, true).note).toMatch(/Demo clock/);
+  });
+
+  it("logs one event per card left, with direction", () => {
+    let s = driftingSession();
+    s = fast(s);
+    s = sessionReducer(s, { type: "step", dir: -1, dwellMs: 3000, hour: 14 });
+    expect(s.events).toHaveLength(2);
+    expect(s.events.map((e) => e.direction)).toEqual(["down", "up"]);
   });
 });
 

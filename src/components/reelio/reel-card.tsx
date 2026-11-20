@@ -1,5 +1,5 @@
 import { Bookmark, Heart, MessageCircle, Music2, Send } from "lucide-react";
-import { memo, type CSSProperties } from "react";
+import { memo, useEffect, useRef, type CSSProperties } from "react";
 import type { ReelContent } from "@/lib/feed";
 
 function Backdrop({ reel }: { reel: ReelContent }) {
@@ -13,7 +13,9 @@ function Backdrop({ reel }: { reel: ReelContent }) {
         <>
           <div
             className="absolute left-1/2 top-[30%] aspect-square w-[78%] -translate-x-1/2 rounded-full opacity-80 blur-[2px] animate-drift-a"
-            style={{ background: `radial-gradient(circle at 35% 30%, ${b}, ${a} 60%, transparent 72%)` }}
+            style={{
+              background: `radial-gradient(circle at 35% 30%, ${b}, ${a} 60%, transparent 72%)`,
+            }}
           />
           <div
             className="absolute -right-10 top-[8%] aspect-square w-[38%] rounded-full opacity-70 blur-xl animate-drift-b"
@@ -58,27 +60,79 @@ function Backdrop({ reel }: { reel: ReelContent }) {
   );
 }
 
+/** Only the card on screen plays; neighbours stay loaded and paused so the next swipe is instant. */
+function ClipVideo({
+  src,
+  poster,
+  active,
+}: {
+  src: string;
+  poster?: string | undefined;
+  active: boolean;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (active) {
+      v.currentTime = 0;
+      void v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [active]);
+  return (
+    <video
+      ref={ref}
+      className="absolute inset-0 h-full w-full object-cover"
+      src={src}
+      poster={poster}
+      muted
+      loop
+      playsInline
+      preload="auto"
+      aria-hidden
+    />
+  );
+}
+
 function Action({ icon: Icon, label }: { icon: typeof Heart; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="grid size-11 place-items-center rounded-full glass shadow-float">
+      <span className="grid size-11 place-items-center rounded-full glass text-foreground shadow-float">
         <Icon className="size-[19px]" strokeWidth={1.7} />
       </span>
-      <span className="text-[11px] font-medium text-foreground/80">{label}</span>
+      <span className="text-[11px] font-medium opacity-85">{label}</span>
     </div>
   );
 }
 
-export const ReelCard = memo(function ReelCard({ reel }: { reel: ReelContent }) {
+export const ReelCard = memo(function ReelCard({
+  reel,
+  active = false,
+}: {
+  reel: ReelContent;
+  active?: boolean;
+}) {
+  const video = Boolean(reel.clip);
   return (
-    <div className="relative h-full w-full select-none text-foreground">
+    <div
+      className={`relative h-full w-full select-none ${video ? "text-white" : "text-foreground"}`}
+    >
       <Backdrop reel={reel} />
+      {reel.clip && (
+        <>
+          <ClipVideo src={reel.clip.src} poster={reel.clip.poster} active={active} />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent" />
+        </>
+      )}
 
       <div className="absolute inset-x-0 top-12 flex justify-center gap-5 text-[13px] font-medium">
-        <span className="text-foreground/50">Following</span>
+        <span className="opacity-60">Following</span>
         <span className="relative">
           For you
-          <span className="absolute -bottom-1.5 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-foreground/70" />
+          <span className="absolute -bottom-1.5 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-current opacity-80" />
         </span>
       </div>
 
@@ -96,14 +150,14 @@ export const ReelCard = memo(function ReelCard({ reel }: { reel: ReelContent }) 
             style={{ background: `linear-gradient(135deg, ${reel.colors[3]}, ${reel.colors[0]})` }}
           />
           <span className="text-[14px] font-semibold">@{reel.handle}</span>
-          <span className="rounded-full border border-foreground/25 px-2.5 py-0.5 text-[11px] font-medium">
+          <span className="rounded-full border border-current/30 px-2.5 py-0.5 text-[11px] font-medium">
             Follow
           </span>
         </div>
-        <p className="mt-2.5 text-[14px] leading-snug text-foreground/90">
-          {reel.caption} <span className="font-semibold text-foreground/70">{reel.tags.join(" ")}</span>
+        <p className="mt-2.5 text-[14px] leading-snug opacity-95">
+          {reel.caption} <span className="font-semibold opacity-75">{reel.tags.join(" ")}</span>
         </p>
-        <p className="mt-2 flex items-center gap-1.5 text-[12px] text-foreground/70">
+        <p className="mt-2 flex items-center gap-1.5 text-[12px] opacity-75">
           <Music2 className="size-3.5" strokeWidth={1.8} />
           {reel.audio}
         </p>
