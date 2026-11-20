@@ -271,7 +271,7 @@ export function useReelioSession() {
     const blob = new Blob(
       [
         JSON.stringify(
-          { session: s.sessionNumber, demoSpeed: speedRef.current, events: s.events },
+          { session: s.sessionNumber, demoSpeed: speedRef.current, ladder: s.ladder, events: s.events },
           null,
           2,
         ),

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   computeDrift,
   COOLDOWN_MS,
+  CALM_TO_RESET,
+  earliestLevelMs,
   formatInterruption,
+  nextRung,
+  STEP_GAP_MS,
+  swipeShareFor,
   intentFactor,
   isFastSwipe,
   isNight,
@@ -22,7 +27,6 @@ import {
   createSession,
   currentItem,
   sessionReducer,
-  type PauseItem,
   type SessionState,
 } from "./session";
 
@@ -133,30 +137,40 @@ interface Persona {
   /** Does the person like/save reel i? */
   engages?: (i: number) => boolean;
   minutes: number;
-  /** What to do at a pause. */
+  /** What to do at the full-screen pause. */
   onPause?: "keepGoing" | "stop";
 }
 
-function run(p: Persona) {
+/** Runs a persona through the real reducer. Returns minutes at which each ladder step started. */
+export function runLadder(p: Persona) {
   let s: SessionState = createSession(1, 0, {
     entry: p.entry,
     dailyMinBefore: p.dailyMinBefore ?? 0,
+    stillInDark: p.stillInDark ?? false,
   });
+  const at: Partial<Record<1 | 2 | 3, number>> = {};
   const pausesAtMin: number[] = [];
   for (let i = 0; s.sessionMs < p.minutes * MIN && i < 5000; i++) {
     const d = p.dwell(i);
     s = sessionReducer(s, { type: "tick", dtMs: d, speed: 1 });
     const cur = currentItem(s);
-    if (p.engages?.(i) && cur?.kind === "reel")
-      s = sessionReducer(s, { type: "engage", id: cur.id });
+    if (p.engages?.(i) && cur) s = sessionReducer(s, { type: "engage", id: cur.id });
     s = sessionReducer(s, { type: "step", dir: 1, dwellMs: d, hour: p.hour });
-    if (currentItem(s)?.kind === "pause") {
-      pausesAtMin.push((currentItem(s) as PauseItem).sessionMs / MIN);
+    const L = s.level as 1 | 2 | 3;
+    if (s.level > 0 && at[L] === undefined) at[L] = s.sessionMs / MIN;
+    if (s.overlay) {
+      pausesAtMin.push(s.overlay.sessionMs / MIN);
       if ((p.onPause ?? "stop") === "stop") break;
       s = sessionReducer(s, { type: "keepGoing" });
     }
   }
-  return pausesAtMin;
+  return { at, pausesAtMin, firstStep: at[1], state: s };
+}
+
+/** Minutes at which Reelio first stepped in (ladder level 1), as a one-item list, or []. */
+function run(p: Persona) {
+  const { firstStep } = runLadder(p);
+  return firstStep === undefined ? [] : [firstStep];
 }
 
 const fastBored = (i: number) => (i % 3 === 0 ? 4000 : 1200); // two of three reels rejected in ~1 s
@@ -217,20 +231,20 @@ describe("scenario evals", () => {
     expect(first).toBeGreaterThanOrEqual(10);
   });
 
-  it("came to reply to a message, slid into fast passive scrolling: paused at the 10-minute floor", () => {
+  it("came to reply to a message, slid into fast passive scrolling: first step at the 10-minute floor", () => {
     const [first] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
     expect(first).toBeGreaterThanOrEqual(10);
     expect(first).toBeLessThan(11);
   });
 
-  it("opened straight into the feed and switching fast, daytime: paused, but later than intent drift", () => {
+  it("opened straight into the feed and switching fast, daytime: steps in, but later than intent drift", () => {
     const [drift] = run({ entry: "dm", hour: 14, dwell: fastBored, minutes: 30 });
     const [home] = run({ entry: "home", hour: 14, dwell: fastBored, minutes: 30 });
     expect(home).toBeGreaterThan(drift!);
     expect(home).toBeLessThan(16);
   });
 
-  it("the same pattern at night, after an hour of scrolling today, pauses at the 10-minute floor", () => {
+  it("the same pattern at night, after an hour of scrolling today, steps in at the 10-minute floor", () => {
     const [first] = run({
       entry: "home",
       hour: 23,
@@ -245,18 +259,75 @@ describe("scenario evals", () => {
     let s: SessionState = createSession(1, 0, { entry: "dm" });
     const waits: number[] = [];
     const at: number[] = [];
-    for (let i = 0; s.sessionMs < 30 * MIN; i++) {
+    for (let i = 0; s.sessionMs < 40 * MIN; i++) {
       s = sessionReducer(s, { type: "tick", dtMs: fastBored(i), speed: 1 });
       s = sessionReducer(s, { type: "step", dir: 1, dwellMs: fastBored(i), hour: 14 });
-      const cur = currentItem(s);
-      if (cur?.kind === "pause") {
-        waits.push(cur.waitMs);
-        at.push(cur.sessionMs);
+      if (s.overlay) {
+        waits.push(s.overlay.waitMs);
+        at.push(s.overlay.sessionMs);
         s = sessionReducer(s, { type: "keepGoing" });
       }
     }
     expect(waits.slice(0, 2)).toEqual([0, 5000]);
     expect(at[1]! - at[0]!).toBeGreaterThanOrEqual(COOLDOWN_MS);
+  });
+});
+
+describe("intervention ladder", () => {
+  const drifter = { entry: "dm" as const, hour: 14, dwell: fastBored, minutes: 40 };
+
+  it("steps up one level at a time: heavier scroll, then grayscale, then the full-screen pause", () => {
+    const { at } = runLadder(drifter);
+    expect(at[1]).toBeGreaterThanOrEqual(10);
+    expect(at[2]! - at[1]!).toBeGreaterThanOrEqual(STEP_GAP_MS / MIN);
+    expect(at[3]! - at[2]!).toBeGreaterThanOrEqual(STEP_GAP_MS / MIN);
+  });
+
+  it("the full-screen pause never comes before 14 minutes", () => {
+    expect(earliestLevelMs(3)).toBe(14 * MIN);
+    const { pausesAtMin } = runLadder({ ...drifter, hour: 23, dailyMinBefore: 90, stillInDark: true, dwell: () => 800 });
+    expect(pausesAtMin[0]).toBeGreaterThanOrEqual(14);
+  });
+
+  it("an engaged viewer never reaches any step", () => {
+    const { at } = runLadder({
+      entry: "home",
+      hour: 23,
+      dwell: () => 14_000,
+      engages: (i) => i % 3 === 0,
+      minutes: 40,
+    });
+    expect(at).toEqual({});
+  });
+
+  it("slowing down for 10 reels lifts the friction", () => {
+    let s: SessionState = createSession(1, 0, { entry: "dm" });
+    for (let i = 0; s.level < 1 && i < 3000; i++) {
+      s = sessionReducer(s, { type: "tick", dtMs: 1000, speed: 1 });
+      s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 14 });
+    }
+    expect(s.level).toBe(1);
+    let slowReels = 0;
+    for (; s.level > 0 && slowReels < 40; slowReels++) {
+      const id = s.items[s.index]!.id;
+      s = sessionReducer(s, { type: "engage", id });
+      s = sessionReducer(s, { type: "tick", dtMs: 20_000, speed: 1 });
+      s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 20_000, hour: 14 });
+    }
+    expect(s.level).toBe(0);
+    expect(slowReels).toBeGreaterThanOrEqual(CALM_TO_RESET);
+  });
+
+  it("nothing happens before the score has stayed high for 5 reels, or before 10 minutes", () => {
+    const base = { level: 0 as const, levelAtMs: null, lastPauseAtMs: null };
+    expect(nextRung({ ...base, streak: 4, sessionMs: 20 * MIN })).toBeNull();
+    expect(nextRung({ ...base, streak: 5, sessionMs: 9 * MIN })).toBeNull();
+    expect(nextRung({ ...base, streak: 5, sessionMs: 10 * MIN })).toBe(1);
+  });
+
+  it("a swipe needs a third of the screen normally and two-thirds with friction on", () => {
+    expect(swipeShareFor(0)).toBeCloseTo(1 / 3);
+    expect(swipeShareFor(1)).toBeCloseTo(2 / 3);
   });
 });
 
@@ -279,11 +350,11 @@ describe("pause message", () => {
 describe("session flow", () => {
   it("swiping is blocked while a pause is showing", () => {
     let s: SessionState = createSession(1, 0, { entry: "dm", dailyMinBefore: 90 });
-    for (let i = 0; i < 2000 && currentItem(s)?.kind !== "pause"; i++) {
+    for (let i = 0; i < 3000 && !s.overlay; i++) {
       s = sessionReducer(s, { type: "tick", dtMs: 1000, speed: 1 });
       s = sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 23 });
     }
-    expect(currentItem(s)?.kind).toBe("pause");
+    expect(s.overlay).not.toBeNull();
     expect(sessionReducer(s, { type: "step", dir: 1, dwellMs: 1000, hour: 23 })).toBe(s);
   });
 

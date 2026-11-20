@@ -82,11 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Reelio" },
-      { name: "description", content: "Reelio notices doomscrolling and gently interrupts it." },
+      { name: "description", content: "Reelio spots doomscrolling on Instagram Reels and steps in." },
       { property: "og:title", content: "Reelio" },
       {
         property: "og:description",
-        content: "Reelio notices doomscrolling and gently interrupts it.",
+        content: "Reelio spots doomscrolling on Instagram Reels and steps in.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

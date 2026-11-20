@@ -77,6 +77,18 @@ export const ONESEC_2023: Source = {
   label: "Grüning et al. 2023, the self-nudge app one sec (PNAS)",
   url: "https://doi.org/10.1073/pnas.2213114120",
 };
+const RUIZ_2024: Source = {
+  label: "Ruiz, Molina León & Heuer 2024, Design Frictions on Social Media (Mensch und Computer '24)",
+  url: "https://arxiv.org/abs/2407.18803",
+};
+const HOLTE_2020: Source = {
+  label: "Holte et al., grayscale and problematic smartphone use (Current Psychology), following Holte & Ferraro 2020",
+  url: "https://link.springer.com/doi/10.1007/s12144-021-02020-y",
+};
+const ZIMMERMANN_2023: Source = {
+  label: "Zimmermann & Sobolev 2023, Digital Strategies for Screen Time Reduction (Cyberpsychology, Behavior, and Social Networking)",
+  url: "https://pubmed.ncbi.nlm.nih.gov/36577008/",
+};
 export const IQBAL_2008: Source = {
   label: "Iqbal & Bailey 2008, interruptions at breakpoints reduce frustration (CHI '08)",
   url: "https://doi.org/10.1145/1357054.1357070",
@@ -244,27 +256,42 @@ export const LEFT_OUT: { label: string; why: string; sources: Source[] }[] = [
 export const INTERRUPT_RULES: { rule: string; why: string; sources: Source[] }[] = [
   {
     rule: "Never before 10 minutes in the feed",
-    why: "Quick checks and typical sessions (about 94 s) are always left alone, and a high bar keeps false alarms rare: blockers that misread meaningful time get bypassed or switched off. Earlier studies prompted at 15–20 minutes; 10 is the floor, and most pauses land between 10 and 15.",
+    why: "Quick checks and typical sessions (about 94 s) are left alone, and a high bar keeps false alarms rare: blockers that misread meaningful time get bypassed or switched off. Earlier studies stepped in at 15 to 20 minutes; 10 is the floor for step 1.",
     sources: [OULASVIRTA_2012, AHMED_2026, MEINHARDT_2025],
   },
   {
-    rule: "Only between reels",
-    why: "Interruptions at a natural breakpoint cause less frustration and faster responses than immediate ones.",
-    sources: [IQBAL_2008],
+    rule: "Three steps, softest first: heavier scroll, then grayscale, then a full-screen pause",
+    why: "In a field study on Reels and TikTok, a pop-up got people to stop fastest (median 7 s vs 56 s for a gradual visual cue), but the gradual cue was tolerated about 2.5 times longer before it annoyed. So Reelio starts with steps that don't block anything and only covers the feed if they don't work.",
+    sources: [MEINHARDT_2026],
   },
   {
-    rule: "A plain card with an easy Close",
-    why: "A simple dismissible pop-up got people to stop faster (median 7 s) than gradual visual or haptic cues; the option to dismiss was the strongest ingredient of one sec.",
-    sources: [MEINHARDT_2026, ONESEC_2023],
+    rule: "Step 1: a swipe needs two-thirds of the screen instead of a third",
+    why: "Adding effort to the scroll itself reduced mindless scrolling and helped people feel in control, without a screen to dismiss. A short delay before opening an app was the core of one sec, which cut how often people opened the apps it guarded.",
+    sources: [RUIZ_2024, ONESEC_2023],
   },
   {
-    rule: "Show elapsed time, and the original purpose if there was one",
-    why: "People lose track of time in feeds, and reminding them of their intention beats restricting access.",
+    rule: "Step 2: Reels turn grayscale",
+    why: "Grayscale makes the feed less rewarding to look at. In several trials it cut daily screen time, and it worked faster than setting time limits.",
+    sources: [HOLTE_2020, ZIMMERMANN_2023],
+  },
+  {
+    rule: "At least 2 minutes and 5 high-scoring reels between steps",
+    why: "Each step gets a fair chance to work before the next one. If the score stays under the threshold for 10 reels in a row, everything lifts and the feed is back to normal. This is a design choice to be tested.",
+    sources: [],
+  },
+  {
+    rule: "Step 3 shows time, the original purpose, and what Reelio noticed",
+    why: "People lose track of time in feeds, and reminding them of their intention works better than restricting access. Listing the two or three signals behind the pause keeps it from feeling arbitrary.",
     sources: [AHMED_2026, BAUGHAN_2022],
   },
   {
-    rule: "At most one pause every 5 minutes; the second asks for a 5-second wait",
-    why: "Repeated interruptions that don't fit the moment lead to desensitisation; a short wait adds friction that reduced app openings.",
+    rule: "Only between reels, always with an easy way out",
+    why: "Interruptions at a natural break cause less frustration. Being able to dismiss was the strongest ingredient of one sec, so Keep going is always there.",
+    sources: [IQBAL_2008, ONESEC_2023],
+  },
+  {
+    rule: "The pause can come back after 5 minutes, with a 5-second wait",
+    why: "Repeated interruptions that don't fit the moment lead to people tuning them out; a short wait adds friction without blocking.",
     sources: [MEINHARDT_2025, ONESEC_2023],
   },
 ];

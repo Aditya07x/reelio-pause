@@ -1,6 +1,6 @@
 # Reelio
 
-Reelio notices when scrolling Reels stops being a choice, and pauses it once, gently.
+Reelio notices when scrolling Reels stops being a choice and steps in, in three steps: a heavier scroll, then grayscale, then a full-screen pause.
 
 This repo is the clickable prototype, in three panels: **(1)** a simulated Instagram Reels feed you scroll, **(2)** the real Reelio app UI (the Android app's WebView bundle, unchanged, in `public/reelio-app/`), fed live from the simulated session in the same JSON shape the Python model produces (`src/lib/reelio-payload.ts`), so Monitor, Calendar, Dashboard and Settings behave as on the phone, with the four capture states Mindful / Aware / Hooked / Doom, and **(3)** "How it decides", the engine's live working. An Assumptions page cites the research behind every signal.
 
@@ -9,7 +9,13 @@ This repo is the clickable prototype, in three panels: **(1)** a simulated Insta
 - **Active only while scrolling Reels.** Messages, search, profiles, Stories and the rest of the phone are never scored or interrupted. On Android this uses the Reelio app's existing accessibility-service checks: Instagram's package only; a screen counts as the Reels feed only when a view fills at least 80% of the height, the screen is a vertical pager, and it carries a "Reels" label; a reel is counted only when a full-height swipe settles on a new item; comment and share sheets pause counting; leaving Reels freezes the score. It reads screen structure, not message text.
 - **Nothing before or during scrolling.** No prompts at the start. Detection is passive.
 - **Seven research-backed signals** add up to a drift score (0–100): how the session started (25), skip rate over the last 10 reels (20), no interaction over the last 10 reels (15), minutes in the feed (15), night 9 pm–7 am (10), short video earlier today (10), lying still in the dark (5). Weights follow the strength of the evidence. Sources, findings and which numbers are design assumptions: `/assumptions` in the app, or `src/lib/evidence.ts`.
-- **One clear pause.** Only after 10+ minutes in the feed, only between reels, when the score stays at 60+ for 5 reels in a row. It shows elapsed time and the original purpose if there was one, with a one-tap Close. Keep going → the next pause comes at least 5 minutes later and asks for a 5-second wait.
+- **Three steps, softest first.** Nothing happens before 10 minutes in the feed. After that, once the score stays at 60+ for 5 reels in a row:
+  1. **Heavier scroll.** A swipe has to travel about two-thirds of the screen instead of a third, quick flicks stop working, and reels slide in more slowly.
+  2. **Colour drains** (at least 2 minutes and 5 more high reels later). Reels turn grayscale and a small Reelio chip shows the time in Reels.
+  3. **Full-screen pause** (again at least 2 minutes and 5 high reels later, so never before 14 minutes). It covers the feed and shows the time, the original purpose if there was one, and the two or three signals behind it. Close Instagram or Keep going; after Keep going it can come back 5 minutes later and asks for a 5-second wait first.
+
+  Ten reels in a row under the threshold lifts everything. The order follows Meinhardt et al. 2026: a pop-up stops scrolling fastest, but gradual cues are tolerated longer, so the gradual ones go first.
+- **Swiping like Instagram.** A third of the screen, or a quick flick, changes reel.
 - **Personal baselines.** Usual session length, skip rate and daily minutes start at research defaults and shift towards the person's own history (shrinkage estimate, like the Android model's UserBaseline). A "sample user" button loads 14 days of synthetic history to show the adaptation.
 - **1 in 5 sessions** end with "Was that time well spent?". Answers nudge the person's pause threshold (−2 for a regretted, unpaused session; +3 for a pause on time they were happy with).
 

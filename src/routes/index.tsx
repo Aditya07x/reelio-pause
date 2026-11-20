@@ -11,13 +11,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Reelio — notices doomscrolling on Reels and gently interrupts it" },
+      { title: "Reelio: spots doomscrolling on Instagram Reels and steps in" },
       {
         name: "description",
         content:
           "Scroll a Reels-style feed and watch the Reelio app classify your session as Mindful, Aware, Hooked or Doom, learn your normal, and pause the feed when scrolling turns into autopilot.",
       },
-      { property: "og:title", content: "Reelio — a gentle pause for the endless feed" },
+      { property: "og:title", content: "Reelio: a brake for the endless feed" },
       {
         property: "og:description",
         content: "Scroll the feed on the left; watch Reelio decide on the right.",
@@ -93,7 +93,7 @@ function Index() {
           <div>
             <h1 className="font-grotesk text-[30px] font-bold leading-none">Reelio</h1>
             <p className="mt-1 text-[13px] text-r-mute">
-              Notices when scrolling Reels stops being a choice, and gently says so. Active only on
+              Notices when scrolling Reels stops being a choice, and steps in. Active only on
               the Reels feed, never in your messages.
             </p>
           </div>

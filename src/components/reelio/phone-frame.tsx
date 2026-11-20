@@ -50,7 +50,7 @@ export function PhoneFrame({
       >
         <div className={`relative h-full w-full overflow-hidden rounded-[2.8rem] ${screen}`}>
           {/* status bar */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-11 items-center justify-between px-7 text-[13px] font-semibold text-foreground/80">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex h-11 items-center justify-between px-7 text-[13px] font-semibold text-foreground/80">
             <span className="tabular-nums">{clock}</span>
             <span className="h-[26px] w-[96px] rounded-full bg-bezel" />
             <span className="flex items-center gap-1.5">
@@ -78,7 +78,7 @@ export function PhoneFrame({
             disabled={!onHome}
             aria-label={homeLabel}
             title={homeLabel}
-            className="group absolute bottom-0 left-1/2 z-20 flex h-8 w-40 -translate-x-1/2 cursor-pointer items-center justify-center disabled:cursor-default"
+            className="group absolute bottom-0 left-1/2 z-40 flex h-8 w-40 -translate-x-1/2 cursor-pointer items-center justify-center disabled:cursor-default"
           >
             <span className="h-[5px] w-32 rounded-full bg-foreground/45 transition-all group-hover:w-36 group-hover:bg-foreground/70 group-disabled:w-32 group-disabled:bg-foreground/25" />
           </button>

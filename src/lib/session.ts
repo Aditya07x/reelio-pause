@@ -1,24 +1,38 @@
 import {
   computeDrift,
+  CALM_TO_RESET,
   interruptionWaitMs,
+  nextRung,
   nextStreak,
+  pauseReasons,
   shouldCheckIn,
-  shouldInterrupt,
   thresholdFor,
   type EntryContext,
+  type Level,
 } from "./drift";
 import { DEFAULT_BASELINE, type Baseline } from "./baseline";
 
 export type ReelItem = { kind: "reel"; id: number };
-export type PauseItem = {
-  kind: "pause";
+export type FeedItem = ReelItem;
+
+/** The full-screen pause (ladder level 3), drawn over the feed. */
+export interface PauseOverlay {
   id: string;
   waitMs: number;
   sessionMs: number;
   reels: number;
   entry: EntryContext;
-};
-export type FeedItem = ReelItem | PauseItem;
+  /** The signals that pushed the score up most, in plain words. */
+  reasons: string[];
+}
+
+/** One row per change of ladder level, for the panel and the log. */
+export interface LadderStep {
+  level: Level;
+  atMs: number;
+  reels: number;
+  score: number;
+}
 
 export type CheckInAnswer = "yes" | "no";
 
@@ -50,6 +64,15 @@ export interface SessionState {
   likedIds: number[];
   events: ReelEvent[];
   streak: number;
+  /** Reels in a row below the threshold. Enough of them and the ladder steps back to 0. */
+  calm: number;
+  /** Current step of the intervention ladder (0 = nothing). */
+  level: Level;
+  levelAtMs: number | null;
+  peakLevel: Level;
+  ladder: LadderStep[];
+  /** The full-screen pause, when it is showing. */
+  overlay: PauseOverlay | null;
   lastPauseAtMs: number | null;
   /** How this session started: observed passively on a phone, chosen in the demo panel. */
   entry: EntryContext;
@@ -118,6 +141,12 @@ export function createSession(
     likedIds: [],
     events: [],
     streak: 0,
+    calm: 0,
+    level: 0,
+    levelAtMs: null,
+    peakLevel: 0,
+    ladder: [],
+    overlay: null,
     lastPauseAtMs: null,
     entry: context.entry ?? "home",
     dailyMinBefore: context.dailyMinBefore ?? 0,
@@ -140,13 +169,13 @@ export function currentItem(s: SessionState) {
 
 export function canStep(s: SessionState, dir: 1 | -1) {
   if (s.phase !== "feed") return false;
-  if (currentItem(s)?.kind === "pause") return false;
+  if (s.overlay) return false;
   if (dir < 0 && s.index === 0) return false;
   return true;
 }
 
 export function reelsSeen(s: SessionState) {
-  return s.dwells.length + (currentItem(s)?.kind === "reel" ? 1 : 0);
+  return s.dwells.length + (currentItem(s) ? 1 : 0);
 }
 
 export function sessionReducer(s: SessionState, a: SessionAction): SessionState {
@@ -159,7 +188,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       if (!canStep(s, a.dir)) return s;
       const dwells = [...s.dwells, a.dwellMs];
       const engaged = [...s.engaged, s.currentEngaged];
-      const { score } = computeDrift({
+      const result = computeDrift({
         sessionMs: s.sessionMs,
         dwellsMs: dwells,
         engaged,
@@ -169,28 +198,43 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         stillInDark: s.stillInDark,
         baseline: s.baseline,
       });
-      let streak = nextStreak(s.streak, score, thresholdFor(s.baseline));
-      let items = s.items;
-      let pauseCount = s.pauseCount;
-      let lastPauseAtMs = s.lastPauseAtMs;
-      if (a.dir > 0 && shouldInterrupt(streak, s.sessionMs, s.lastPauseAtMs)) {
-        const pause: PauseItem = {
-          kind: "pause",
-          id: `pause-${s.sessionNumber}-${pauseCount}`,
-          waitMs: interruptionWaitMs(s.keptGoing),
-          sessionMs: s.sessionMs,
-          reels: dwells.length,
-          entry: s.entry,
-        };
-        items = [...items.slice(0, s.index + 1), pause, ...items.slice(s.index + 1)];
+      const { score } = result;
+      const threshold = thresholdFor(s.baseline);
+      let streak = nextStreak(s.streak, score, threshold);
+      const calm = score < threshold ? s.calm + 1 : 0;
+      let { level, levelAtMs, ladder, overlay, pauseCount, lastPauseAtMs } = s;
+      // Slowed down for long enough: step all the way back down.
+      if (level > 0 && calm >= CALM_TO_RESET) {
+        level = 0;
+        levelAtMs = s.sessionMs;
+        ladder = [...ladder, { level: 0, atMs: s.sessionMs, reels: dwells.length, score }];
+      }
+      const rung =
+        a.dir > 0 ? nextRung({ level, streak, sessionMs: s.sessionMs, levelAtMs, lastPauseAtMs }) : null;
+      if (rung !== null) {
+        if (rung !== level) {
+          level = rung;
+          levelAtMs = s.sessionMs;
+        }
+        ladder = [...ladder, { level: rung, atMs: s.sessionMs, reels: dwells.length, score }];
         streak = 0;
-        pauseCount += 1;
-        lastPauseAtMs = s.sessionMs;
+        if (rung === 3) {
+          overlay = {
+            id: `pause-${s.sessionNumber}-${pauseCount}`,
+            waitMs: interruptionWaitMs(s.keptGoing),
+            sessionMs: s.sessionMs,
+            reels: dwells.length,
+            entry: s.entry,
+            reasons: pauseReasons(result, s.entry, s.sessionMs, s.dailyMinBefore),
+          };
+          pauseCount += 1;
+          lastPauseAtMs = s.sessionMs;
+        }
       }
       const left = currentItem(s);
       const event: ReelEvent = {
         index: s.index,
-        itemId: left?.kind === "reel" ? left.id : -1,
+        itemId: left ? left.id : -1,
         dwellMs: Math.round(a.dwellMs),
         direction: a.dir > 0 ? "down" : "up",
         engaged: s.currentEngaged,
@@ -200,7 +244,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         at: a.at ?? 0,
       };
       const index = s.index + a.dir;
-      const look = withLookahead(items, index, s.nextReelId);
+      const look = withLookahead(s.items, index, s.nextReelId);
       return {
         ...s,
         ...look,
@@ -210,6 +254,12 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         currentEngaged: false,
         events: [...s.events, event],
         streak,
+        calm,
+        level,
+        levelAtMs,
+        peakLevel: Math.max(s.peakLevel, level) as Level,
+        ladder,
+        overlay,
         pauseCount,
         lastPauseAtMs,
         peakScore: Math.max(s.peakScore, score),
@@ -217,7 +267,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
     }
 
     case "engage": {
-      if (s.phase !== "feed" || currentItem(s)?.kind !== "reel") return s;
+      if (s.phase !== "feed" || s.overlay || !currentItem(s)) return s;
       const liked = s.likedIds.includes(a.id);
       return {
         ...s,
@@ -236,10 +286,8 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       };
 
     case "keepGoing": {
-      if (s.phase !== "feed" || currentItem(s)?.kind !== "pause") return s;
-      const items = s.items.filter((_, i) => i !== s.index);
-      const look = withLookahead(items, s.index, s.nextReelId);
-      return { ...s, ...look, keptGoing: true };
+      if (s.phase !== "feed" || !s.overlay) return s;
+      return { ...s, overlay: null, keptGoing: true };
     }
 
     case "close":
@@ -247,6 +295,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       return {
         ...s,
         phase: "ended",
+        overlay: null,
         summary: { ms: s.sessionMs, reels: reelsSeen(s) },
         askCheckIn: shouldCheckIn(s.sessionNumber),
         checkIn: null,

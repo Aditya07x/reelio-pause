@@ -199,6 +199,109 @@ export function interruptionWaitMs(keptGoing: boolean) {
   return keptGoing ? HARD_WAIT_MS : 0;
 }
 
+// ---------------------------------------------------------------------------
+// The intervention ladder. Soft, gradual steps come first because they cause
+// less pushback; the full-screen pause comes last because it stops scrolling
+// fastest (Meinhardt et al. 2026: pop-up median 7 s to stop vs 56 s for a
+// gradual visual, but gradual steps were tolerated about 2.5× longer).
+// ---------------------------------------------------------------------------
+
+export type Level = 0 | 1 | 2 | 3;
+
+export const LADDER: { level: Exclude<Level, 0>; name: string; what: string; why: string }[] = [
+  {
+    level: 1,
+    name: "Heavier scroll",
+    what: "A swipe has to travel about two-thirds of the screen instead of a third, and the next reel slides in more slowly.",
+    why: "Friction in the feed itself, with no screen to dismiss (Ruiz et al. 2024; one sec, Grüning et al. 2023).",
+  },
+  {
+    level: 2,
+    name: "Colour drains",
+    what: "Reels fade to grayscale and a small Reelio chip shows how long you have been in Reels.",
+    why: "Grayscale made phones less rewarding and cut screen time in several trials (Holte & Ferraro 2020; Zimmermann & Sobolev 2023).",
+  },
+  {
+    level: 3,
+    name: "Full-screen pause",
+    what: "Reelio covers the feed with a pause screen. The second time, it asks for a 5-second wait first.",
+    why: "The format that stops scrolling fastest (Meinhardt et al. 2026).",
+  },
+];
+
+/** Feed time between one step of the ladder and the next. */
+export const STEP_GAP_MS = 2 * 60_000;
+/** Reels in a row below the threshold before Reelio steps all the way back down. */
+export const CALM_TO_RESET = 10;
+/** Share of the screen height a swipe must travel to change reel. Instagram: about a third. */
+export const SWIPE_SHARE = 1 / 3;
+export const SWIPE_SHARE_FRICTION = 2 / 3;
+/** A quick flick changes reel even when it is short (not at level 1 and above). */
+export const FLICK_PX_PER_MS = 0.5;
+
+export function swipeShareFor(level: Level) {
+  return level >= 1 ? SWIPE_SHARE_FRICTION : SWIPE_SHARE;
+}
+/** How far the card follows the finger: 1 = exactly, lower = feels heavier. */
+export function dragFollowFor(level: Level) {
+  return level >= 1 ? 0.45 : 1;
+}
+export function slideMsFor(level: Level) {
+  return level >= 1 ? 950 : 420;
+}
+
+export interface LadderInput {
+  level: Level;
+  streak: number;
+  sessionMs: number;
+  /** Feed time when the current level started. */
+  levelAtMs: number | null;
+  /** Feed time of the last full-screen pause. */
+  lastPauseAtMs: number | null;
+}
+
+/**
+ * What the ladder does after this reel: step up one level, show the full-screen
+ * pause again (only once already at level 3), or nothing.
+ */
+export function nextRung({ level, streak, sessionMs, levelAtMs, lastPauseAtMs }: LadderInput) {
+  if (streak < STREAK_TO_INTERRUPT || sessionMs < MIN_FEED_MS) return null;
+  if (level === 0) return 1 as const;
+  if (level < 3) {
+    if (levelAtMs !== null && sessionMs - levelAtMs < STEP_GAP_MS) return null;
+    return (level + 1) as 2 | 3;
+  }
+  if (lastPauseAtMs !== null && sessionMs - lastPauseAtMs < COOLDOWN_MS) return null;
+  return 3 as const;
+}
+
+/**
+ * The two or three signals that pushed the score up most, in plain words, for the
+ * pause screen. Showing why keeps the pause from feeling arbitrary.
+ */
+export function pauseReasons(r: DriftResult, entry: EntryContext, sessionMs: number, dailyMinBefore = 0) {
+  const purpose = ENTRIES.find((e) => e.key === entry)?.purpose;
+  const words: Record<FactorKey, string> = {
+    entry: purpose ? `You came to ${purpose}` : "Opened straight into Reels",
+    skips: `Skipped ${r.fastCount} of the last ${r.recentCount}`,
+    interaction: "No likes or saves lately",
+    time: `${Math.round(sessionMs / 60000)} min in Reels`,
+    night: "It's late",
+    bed: "Lying still in the dark",
+    load: `${Math.round(dailyMinBefore)} min of Reels earlier today`,
+  };
+  return [...r.parts]
+    .filter((p) => p.points > 0)
+    .sort((x, y) => y.points / y.max - x.points / x.max || y.points - x.points)
+    .slice(0, 3)
+    .map((p) => words[p.key]);
+}
+
+/** Earliest feed time each level can start, if the score stays high throughout. */
+export function earliestLevelMs(level: Exclude<Level, 0>) {
+  return MIN_FEED_MS + (level - 1) * STEP_GAP_MS;
+}
+
 /** Sessions 1, 6, 11 … get the "well spent?" check-in: 1 in 5. */
 export function shouldCheckIn(sessionNumber: number) {
   return (sessionNumber - 1) % CHECK_IN_EVERY === 0;

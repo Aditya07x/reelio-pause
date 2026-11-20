@@ -68,6 +68,8 @@
   --animate-drift-b: drift-b 22s ease-in-out infinite;
   --animate-breathe: breathe 5s ease-in-out infinite;
   --animate-rise: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: fade 0.45s ease-out both;
+  --animate-chip: chip 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   @keyframes drift-a {
     0%,
@@ -96,6 +98,24 @@
     50% {
       transform: scale(1.06);
       opacity: 0.9;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes chip {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
   @keyframes rise {
@@ -293,6 +313,41 @@
   --color-r-hooked-bg: #f5f0e2;
   --color-r-doom: #c4563a;
   --color-r-doom-bg: #f5ede9;
+  /* The Reelio app's own pastel set (theme object D in the Android WebView UI). */
+  --color-r-card: #fdfaf6;
+  --color-r-charcoal: #2d3436;
+  --color-r-ink3: #7f8c8d;
+  --color-r-blue-soft: #ebf2f7;
+  --color-r-blue-mid: #85a8bd;
+  --color-r-sage: #9eb384;
+  --color-r-sage-soft: #f0f4ec;
+  --color-r-sage-dark: #6b8252;
+  --color-r-blush: #e5c3c6;
+  --color-r-blush-soft: #faf0f2;
+  --color-r-blush-dark: #b88a8e;
+  --color-r-peach: #f7d1ba;
+  --color-r-peach-soft: #faf2ec;
+  --color-r-peach-dark: #c99a7f;
+  --color-r-lavender: #e3dbf0;
+  --color-r-track: #e4ded4;
+}
+
+@utility bg-reelio-app {
+  background-color: #f5f1ea;
+  background-image:
+    radial-gradient(rgba(45, 52, 54, 0.03) 1.2px, transparent 1.2px),
+    linear-gradient(180deg, #f5f1ea 0%, #efe8dc 100%);
+  background-size: 18px 18px, 100% 100%;
+}
+@utility shadow-paper {
+  box-shadow:
+    0 4px 16px -2px rgba(45, 52, 54, 0.07),
+    0 2px 5px -1px rgba(45, 52, 54, 0.04);
+}
+@utility shadow-paper-lift {
+  box-shadow:
+    0 8px 24px -4px rgba(45, 52, 54, 0.11),
+    0 3px 8px -2px rgba(45, 52, 54, 0.06);
 }
 
 @utility font-grotesk {
