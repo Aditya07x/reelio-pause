@@ -2,7 +2,7 @@
 
 Reelio notices when scrolling Reels stops being a choice, and pauses it once, gently.
 
-This repo is the clickable prototype: a phone-style short-video feed with a live "How it decides" panel, the interruption card, and an Assumptions page that cites the research behind every signal.
+This repo is the clickable prototype, in three panels: **(1)** a simulated Instagram Reels feed you scroll, **(2)** the Reelio app itself (Monitor, Sessions, Baseline), styled after the Reelio Android app, updating live with the four capture states Mindful / Aware / Hooked / Doom, and **(3)** "How it decides", the engine's live working. An Assumptions page cites the research behind every signal.
 
 ## What it does
 
@@ -10,14 +10,15 @@ This repo is the clickable prototype: a phone-style short-video feed with a live
 - **Nothing before or during scrolling.** No prompts at the start. Detection is passive.
 - **Seven research-backed signals** add up to a drift score (0–100): how the session started (25), skip rate over the last 10 reels (20), no interaction over the last 10 reels (15), minutes in the feed (15), night 9 pm–7 am (10), short video earlier today (10), lying still in the dark (5). Weights follow the strength of the evidence. Sources, findings and which numbers are design assumptions: `/assumptions` in the app, or `src/lib/evidence.ts`.
 - **One clear pause.** Only after 10+ minutes in the feed, only between reels, when the score stays at 60+ for 5 reels in a row. It shows elapsed time and the original purpose if there was one, with a one-tap Close. Keep going → the next pause comes at least 5 minutes later and asks for a 5-second wait.
-- **1 in 5 sessions** end with "Was that time well spent?", the signal for testing and tuning the detector.
+- **Personal baselines.** Usual session length, skip rate and daily minutes start at research defaults and shift towards the person's own history (shrinkage estimate, like the Android model's UserBaseline). A "sample user" button loads 14 days of synthetic history to show the adaptation.
+- **1 in 5 sessions** end with "Was that time well spent?". Answers nudge the person's pause threshold (−2 for a regretted, unpaused session; +3 for a pause on time they were happy with).
 
 ## Run it
 
 ```
 bun install      # or npm install
 bun run dev      # http://localhost:8080
-bun run test     # 28 tests: unit checks + literature-based scenario evals
+bun run test     # 34 tests: unit checks, literature-based scenario evals, baseline tests
 ```
 
 ## Where things live
@@ -27,6 +28,9 @@ bun run test     # 28 tests: unit checks + literature-based scenario evals
 | `src/lib/evidence.ts` | Every factor, its weight, evidence strength, sources, the Android columns it maps to, the 100-signal audit, interruption rules |
 | `src/lib/drift.ts` | The pure scoring and interruption rules |
 | `src/lib/session.ts` | Session state as a pure reducer |
+| `src/lib/baseline.ts` | Personal baselines, priors, check-in tuning, synthetic sample users |
+| `src/lib/states.ts` | The four capture states and cut-offs (from the Android app) |
+| `src/components/reelio/reelio-app.tsx` | The Reelio app screens |
 | `src/lib/drift.test.ts` | Unit tests and scenario evals |
 | `src/routes/assumptions.tsx` | The Assumptions page |
 | `public/clips/manifest.json` | 27 free Pexels clips (streamed from Pexels, creators credited) |

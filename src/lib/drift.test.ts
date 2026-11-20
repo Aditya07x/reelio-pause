@@ -10,6 +10,13 @@ import {
   shouldCheckIn,
   type EntryContext,
 } from "./drift";
+import {
+  computeBaseline,
+  DEFAULT_BASELINE,
+  PRIORS,
+  sampleHistory,
+  type SessionSummary,
+} from "./baseline";
 import { FACTORS, WEIGHT_TOTAL } from "./evidence";
 import {
   createSession,
@@ -101,10 +108,10 @@ describe("individual factors", () => {
     expect(part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 23 }), "bed")).toBe(0);
   });
 
-  it("earlier short-video time today adds up to its full weight at 90 min", () => {
+  it("earlier short-video time today reaches full weight at 1.5× the usual day (prior 57 → 85.5 min)", () => {
     expect(
-      part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14, dailyMinBefore: 45 }), "load"),
-    ).toBe(5);
+      part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14, dailyMinBefore: 42.75 }), "load"),
+    ).toBeCloseTo(5);
     expect(
       part(computeDrift({ sessionMs: 0, dwellsMs: [], hour: 14, dailyMinBefore: 200 }), "load"),
     ).toBe(10);
@@ -307,5 +314,67 @@ describe("session flow", () => {
     expect(s.askCheckIn).toBe(false);
     s = sessionReducer(s, { type: "close" });
     expect(s.askCheckIn).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Personal baselines
+// ---------------------------------------------------------------------------
+
+const summary = (over: Partial<SessionSummary>): SessionSummary => ({
+  id: 1,
+  startedAt: Date.now() - 2 * 86_400_000,
+  minutes: 2,
+  reels: 20,
+  skipRate: 0.2,
+  interactionRate: 0.2,
+  hour: 14,
+  entry: "home",
+  peakScore: 20,
+  state: "mindful",
+  pauses: 0,
+  checkIn: null,
+  ...over,
+});
+
+describe("personal baseline", () => {
+  it("with no history, uses the research priors", () => {
+    expect(computeBaseline([])).toEqual(DEFAULT_BASELINE);
+  });
+
+  it("moves halfway to the person's own mean after k sessions", () => {
+    const k = PRIORS.sessionMin.k;
+    const h = Array.from({ length: k }, (_, i) => summary({ id: i, minutes: 11.5 }));
+    expect(computeBaseline(h).sessionMin).toBeCloseTo((1.5 + 11.5) / 2);
+  });
+
+  it("the same skipping counts less for someone who always skips that much", () => {
+    const dwellsMs = [800, 4000, 800, 4000, 800, 4000, 800, 4000, 800, 4000]; // 50% skips
+    const usual = computeDrift({ sessionMs: 5 * MIN, dwellsMs, hour: 14 });
+    const habitualSkipper = computeDrift({
+      sessionMs: 5 * MIN,
+      dwellsMs,
+      hour: 14,
+      baseline: { ...DEFAULT_BASELINE, skipRate: 0.45 },
+    });
+    expect(part(habitualSkipper, "skips")).toBeLessThan(part(usual, "skips"));
+  });
+
+  it("a regretted session that was never paused makes the next pause come a little earlier", () => {
+    const b = computeBaseline([summary({ peakScore: 55, checkIn: "no" })]);
+    expect(b.thresholdOffset).toBe(-2);
+  });
+
+  it("a paused session marked 'well spent' makes the next pause come a little later", () => {
+    const b = computeBaseline([summary({ pauses: 1, peakScore: 75, checkIn: "yes" })]);
+    expect(b.thresholdOffset).toBe(3);
+  });
+
+  it("an evening scroller's baseline ends up very different from a light checker's", () => {
+    const light = computeBaseline(sampleHistory("light"));
+    const evening = computeBaseline(sampleHistory("evening"));
+    expect(evening.sessionMin).toBeGreaterThan(light.sessionMin * 3);
+    expect(evening.skipRate).toBeGreaterThan(light.skipRate);
+    expect(light.days).toBe(14);
   });
 });

@@ -1,6 +1,60 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { computeDrift, DEMO_SPEED, IDLE_MS, type EntryContext } from "@/lib/drift";
-import { canStep, createSession, sessionReducer, type CheckInAnswer } from "@/lib/session";
+import {
+  computeBaseline,
+  minutesToday,
+  sampleHistory,
+  type SamplePersona,
+  type SessionSummary,
+} from "@/lib/baseline";
+import { computeDrift, DEMO_SPEED, IDLE_MS, isFastSwipe, type EntryContext } from "@/lib/drift";
+import {
+  canStep,
+  createSession,
+  reelsSeen,
+  sessionReducer,
+  type CheckInAnswer,
+  type SessionState,
+} from "@/lib/session";
+import { stateFor } from "@/lib/states";
+
+const HISTORY_KEY = "reelio-history-v1";
+
+function loadHistory(): SessionSummary[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as SessionSummary[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(h: SessionSummary[]) {
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(-400)));
+  } catch {
+    /* storage may be unavailable; history then lives only in memory */
+  }
+}
+
+/** Turn a finished session into the summary Reelio keeps (no content, just behaviour). */
+export function summarise(s: SessionState, id: number, now: number): SessionSummary {
+  const n = s.dwells.length;
+  const minutes = s.sessionMs / 60000;
+  return {
+    id,
+    startedAt: s.startedAt || now - s.sessionMs,
+    minutes: Math.round(minutes * 10) / 10,
+    reels: reelsSeen(s),
+    skipRate: n ? s.dwells.filter(isFastSwipe).length / n : 0,
+    interactionRate: n ? s.engaged.filter(Boolean).length / n : 0,
+    hour: new Date(now).getHours(),
+    entry: s.entry,
+    peakScore: s.peakScore,
+    state: stateFor(s.peakScore).key,
+    pauses: s.pauseCount,
+    checkIn: null,
+  };
+}
 
 const LATE_NIGHT_HOUR = 23;
 
@@ -11,6 +65,26 @@ export function useReelioSession() {
   const [now, setNow] = useState<Date | null>(null);
   const [currentDwellMs, setCurrentDwellMs] = useState(0);
   const [idle, setIdle] = useState(false);
+  const [history, setHistoryState] = useState<SessionSummary[]>([]);
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const baseline = useMemo(() => computeBaseline(history), [history]);
+
+  const setHistory = useCallback((h: SessionSummary[]) => {
+    setHistoryState(h);
+    saveHistory(h);
+  }, []);
+
+  // Load this browser's history after mount (never during server render).
+  useEffect(() => {
+    const h = loadHistory();
+    setHistoryState(h);
+    dispatch({
+      type: "setContext",
+      baseline: computeBaseline(h),
+      dailyMinBefore: minutesToday(h),
+    });
+  }, []);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -75,12 +149,51 @@ export function useReelioSession() {
     dispatch({ type: "keepGoing" });
     resetDwell();
   }, []);
-  const close = useCallback(() => dispatch({ type: "close" }), []);
+  const close = useCallback(() => {
+    const s = stateRef.current;
+    if (s.phase === "feed" && reelsSeen(s) > 1) {
+      const h = historyRef.current;
+      const next = [...h, summarise(s, (h.at(-1)?.id ?? 0) + 1, Date.now())];
+      setHistory(next);
+    }
+    dispatch({ type: "close" });
+  }, [setHistory]);
   const start = useCallback(() => {
-    dispatch({ type: "start" });
+    const h = historyRef.current;
+    dispatch({
+      type: "start",
+      baseline: computeBaseline(h),
+      dailyMinBefore: minutesToday(h),
+      startedAt: Date.now(),
+    });
     resetDwell();
   }, []);
-  const answer = useCallback((a: CheckInAnswer) => dispatch({ type: "answer", answer: a }), []);
+  const answer = useCallback(
+    (a: CheckInAnswer) => {
+      dispatch({ type: "answer", answer: a });
+      // The answer belongs to the session that just closed; it tunes the threshold for the next one.
+      const h = historyRef.current;
+      if (h.length) setHistory([...h.slice(0, -1), { ...h.at(-1)!, checkIn: a }]);
+    },
+    [setHistory],
+  );
+  /** Replace history with 14 days of a synthetic sample user, to watch the baseline adapt. */
+  const loadSample = useCallback(
+    (p: SamplePersona) => {
+      const h = sampleHistory(p);
+      setHistory(h);
+      dispatch({
+        type: "setContext",
+        baseline: computeBaseline(h),
+        dailyMinBefore: minutesToday(h),
+      });
+    },
+    [setHistory],
+  );
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    dispatch({ type: "setContext", baseline: computeBaseline([]), dailyMinBefore: 0 });
+  }, [setHistory]);
   /** Like / save / share on the reel on screen: active use, which lowers the passive-watching factor. */
   const engage = useCallback((id: number) => {
     markActive();
@@ -110,6 +223,7 @@ export function useReelioSession() {
         entry: state.entry,
         dailyMinBefore: state.dailyMinBefore,
         stillInDark: state.stillInDark,
+        baseline: state.baseline,
         currentDwellMs: onReel ? currentDwellMs : 0,
       }),
     [
@@ -173,6 +287,10 @@ export function useReelioSession() {
     setDailyMinBefore,
     setStillInDark,
     exportLog,
+    history,
+    baseline,
+    loadSample,
+    clearHistory,
   };
 }
 

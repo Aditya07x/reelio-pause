@@ -12,6 +12,8 @@ import {
   type Source,
   type Strength,
 } from "@/lib/evidence";
+import { PRIORS } from "@/lib/baseline";
+import { STATES, STATE_CUTS } from "@/lib/states";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/assumptions")({
@@ -193,6 +195,79 @@ function AssumptionsPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="font-soft text-[28px]">Your normal, not the average</h2>
+          <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
+            What counts as doomscrolling differs from person to person, so three of the signals are
+            judged against the person&apos;s own baseline. Reelio starts from the research default
+            and moves towards the person&apos;s own average as sessions accumulate: estimate = (k ×
+            default + n × your mean) ÷ (k + n). After k sessions your own pattern carries half the
+            weight. The same approach as the UserBaseline in the Reelio Android model.
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {[
+              [
+                "Usual session",
+                `${PRIORS.sessionMin.mean} min, k = ${PRIORS.sessionMin.k}`,
+                PRIORS.sessionMin.source,
+                "Minutes in the feed start counting at twice this (between 2 and 10 min).",
+              ],
+              [
+                "Usual skip rate",
+                `${PRIORS.skipRate.mean * 100}%, k = ${PRIORS.skipRate.k}`,
+                PRIORS.skipRate.source,
+                "Only skipping above this counts; full weight 30 points above it.",
+              ],
+              [
+                "Usual day",
+                `${PRIORS.dailyMin.mean} min, k = ${PRIORS.dailyMin.k} days`,
+                PRIORS.dailyMin.source,
+                "'Earlier today' reaches full weight at 1.5× this.",
+              ],
+            ].map(([t, d, src, use]) => (
+              <div key={t} className="rounded-[1.25rem] bg-card p-5 shadow-soft">
+                <h3 className="font-soft text-[19px]">{t}</h3>
+                <p className="mt-1 text-[13px] font-medium">Default: {d}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">{src}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{use}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 rounded-[1.25rem] glass p-5 text-[13px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Check-ins tune the threshold. </span>
+            After 1 in 5 sessions Reelio asks &ldquo;was that well spent?&rdquo;. A regretted
+            session that was never paused lowers this person&apos;s pause threshold by 2; a pause on
+            a session they were happy with raises it by 3 (bounded ±10). This mirrors the
+            regret-feedback loop in the Android model.
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-4">
+            {Object.values(STATES).map((st, i) => (
+              <div key={st.key} className="rounded-[1.25rem] p-4" style={{ background: st.bg }}>
+                <div
+                  className="text-[11px] font-semibold uppercase tracking-[0.14em]"
+                  style={{ color: st.accent }}
+                >
+                  {st.label}
+                </div>
+                <div className="mt-1 text-[13px]">
+                  {i === 0
+                    ? `under ${STATE_CUTS.aware}`
+                    : i === 1
+                      ? `${STATE_CUTS.aware}–${STATE_CUTS.hooked - 1}`
+                      : i === 2
+                        ? `${STATE_CUTS.hooked}–${STATE_CUTS.doom - 1}`
+                        : `${STATE_CUTS.doom}+`}
+                </div>
+                <div className="mt-1 text-[12px] text-muted-foreground">{st.headline}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            The four capture states and their cut-offs are the Reelio Android app&apos;s. Each
+            session is filed under the highest state it reached.
+          </p>
         </section>
 
         <section className="mt-12">

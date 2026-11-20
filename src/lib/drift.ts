@@ -2,6 +2,7 @@
 // Each factor and its weight is grounded in src/lib/evidence.ts; numbers marked
 // "assumption" there are design choices to be tested, not findings.
 
+import { DEFAULT_BASELINE, type Baseline } from "./baseline";
 import { FACTORS, type FactorKey } from "./evidence";
 
 export type EntryContext = "home" | "dm" | "notification" | "search" | "work";
@@ -52,6 +53,8 @@ export interface DriftInput {
   currentDwellMs?: number;
   /** Motion and light sensors agree the phone is held still in a dark room. */
   stillInDark?: boolean;
+  /** This person's learned normal; defaults to the research priors. */
+  baseline?: Baseline;
 }
 
 export interface DriftPart {
@@ -69,7 +72,9 @@ export interface DriftResult {
   recentCount: number;
 }
 
-const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+function clamp(v: number, lo = 0, hi = 1) {
+  return Math.min(hi, Math.max(lo, v));
+}
 const ramp = (v: number, from: number, to: number) => clamp((v - from) / (to - from));
 
 export function isFastSwipe(dwellMs: number) {
@@ -96,6 +101,7 @@ export function computeDrift({
   dailyMinBefore = 0,
   currentDwellMs = 0,
   stillInDark = false,
+  baseline = DEFAULT_BASELINE,
 }: DriftInput): DriftResult {
   const feedMin = sessionMs / 60000;
 
@@ -112,12 +118,15 @@ export function computeDrift({
 
   const f = {
     entry: intentFactor(entry, feedMin),
-    skips: clamp(fastShare / 0.5) * confidence,
+    // Skips above this person's usual rate count; full weight 30 points above it.
+    skips: clamp((fastShare - baseline.skipRate) / 0.3) * confidence,
     interaction: ramp(passiveShare, 0.5, 0.9) * Math.min(1, m / CONFIDENT_AFTER),
-    time: ramp(feedMin, 2, 20),
+    // Starts at twice this person's usual session (never before 2 or after 10 min), full at 20 min.
+    time: ramp(feedMin, timeStart(baseline), 20),
     night: isNight(hour) ? 1 : 0,
     bed: stillInDark ? 1 : 0,
-    load: clamp(dailyMinBefore / 90),
+    // Full weight at 1.5× this person's usual day.
+    load: clamp(dailyMinBefore / (1.5 * baseline.dailyMin)),
   } satisfies Record<FactorKey, number>;
 
   const purpose = ENTRIES.find((e) => e.key === entry)?.purpose;
@@ -130,14 +139,16 @@ export function computeDrift({
           : feedMin < 1
             ? `came to ${purpose}`
             : `came to ${purpose} · in the Reels feed for ${feedMin.toFixed(1)} min since`,
-    skips: n ? `${fastCount} of last ${n} reels left in under 2 s` : "waiting for a few reels",
+    skips: n
+      ? `${fastCount} of last ${n} left in under 2 s · usual ${Math.round(baseline.skipRate * 100)}%`
+      : "waiting for a few reels",
     interaction: m
       ? `${Math.round(passiveShare * 100)}% of last ${m} reels with no like, save or share`
       : "waiting for a few reels",
-    time: `${feedMin.toFixed(1)} min · a typical session is ~1.5 min`,
+    time: `${feedMin.toFixed(1)} min · your usual session ${baseline.sessionMin.toFixed(1)} min`,
     night: isNight(hour) ? "between 9 pm and 7 am" : "daytime",
     bed: stillInDark ? "phone still, room dark" : "moving or in light",
-    load: `${Math.round(dailyMinBefore)} min of short video earlier today`,
+    load: `${Math.round(dailyMinBefore)} min earlier today · your usual day ${Math.round(baseline.dailyMin)} min`,
   };
 
   const parts: DriftPart[] = FACTORS.map((fx) => ({
@@ -158,8 +169,17 @@ export function computeDrift({
   return { score, parts, fastCount, recentCount: n };
 }
 
-export function nextStreak(streak: number, score: number) {
-  return score >= DRIFT_THRESHOLD ? streak + 1 : 0;
+export function timeStart(baseline: Baseline = DEFAULT_BASELINE) {
+  return clamp(2 * baseline.sessionMin, 2, 10);
+}
+
+/** The pause threshold for this person: the default, nudged by their check-ins. */
+export function thresholdFor(baseline: Baseline = DEFAULT_BASELINE) {
+  return DRIFT_THRESHOLD + baseline.thresholdOffset;
+}
+
+export function nextStreak(streak: number, score: number, threshold = DRIFT_THRESHOLD) {
+  return score >= threshold ? streak + 1 : 0;
 }
 
 /** Interrupt only after a sustained high score, past the minimum feed time, and outside the cooldown. */

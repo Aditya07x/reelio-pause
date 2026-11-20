@@ -5,15 +5,22 @@ export function PhoneFrame({
   children,
   onHome,
   homeLabel,
+  size = "relative h-svh w-full sm:h-[min(860px,calc(100svh-3rem))] sm:w-auto",
+  screen = "bg-card",
 }: {
   clock: string;
   children: ReactNode;
   onHome?: (() => void) | undefined;
   homeLabel: string;
+  /** Height/width classes for the device; the 9:19.3 aspect and bezel are kept. */
+  size?: string;
+  screen?: string;
 }) {
   return (
-    <div className="relative h-svh w-full sm:h-[min(860px,calc(100svh-3rem))] sm:w-auto sm:aspect-[9/19.3] sm:rounded-[3.4rem] sm:bg-bezel sm:p-[11px] sm:shadow-phone">
-      <div className="relative h-full w-full overflow-hidden bg-card sm:rounded-[2.8rem]">
+    <div
+      className={`${size} sm:aspect-[9/19.3] sm:rounded-[3.4rem] sm:bg-bezel sm:p-[11px] sm:shadow-phone`}
+    >
+      <div className={`relative h-full w-full overflow-hidden ${screen} sm:rounded-[2.8rem]`}>
         {/* status bar */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-11 items-center justify-between px-7 text-[13px] font-semibold text-foreground/80">
           <span className="tabular-nums">{clock}</span>
@@ -21,7 +28,11 @@ export function PhoneFrame({
           <span className="flex items-center gap-1.5">
             <span className="flex items-end gap-[2px]">
               {[5, 7, 9, 11].map((h) => (
-                <span key={h} className="w-[3px] rounded-sm bg-foreground/70" style={{ height: h }} />
+                <span
+                  key={h}
+                  className="w-[3px] rounded-sm bg-foreground/70"
+                  style={{ height: h }}
+                />
               ))}
             </span>
             <span className="ml-1 h-[11px] w-[22px] rounded-[3px] border border-foreground/50 p-[1.5px]">

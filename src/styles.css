@@ -192,3 +192,70 @@
 @utility no-tap-highlight {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Reelio app theme (ported from the Reelio Android app's WebView UI) ── */
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Nunito";
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/Nunito-Latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SpaceMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Mono";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SpaceMono-Bold.woff2") format("woff2");
+}
+
+@theme inline {
+  --color-r-bg: #f5f1ea;
+  --color-r-paper: #faf8f5;
+  --color-r-section: #ede7dc;
+  --color-r-nav: #eae3d5;
+  --color-r-ink: #1a1612;
+  --color-r-ink2: #545b5e;
+  --color-r-mute: #6a5e56;
+  --color-r-line: #e2dacb;
+  --color-r-blue: #a8c5d6;
+  --color-r-blue-dark: #6e93a9;
+  --color-r-mindful: #3a9e6f;
+  --color-r-mindful-bg: #eaf3ee;
+  --color-r-aware: #6b3fa0;
+  --color-r-aware-bg: #e8e0f5;
+  --color-r-hooked: #c4973a;
+  --color-r-hooked-bg: #f5f0e2;
+  --color-r-doom: #c4563a;
+  --color-r-doom-bg: #f5ede9;
+}
+
+@utility font-grotesk {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+@utility font-nunito {
+  font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+}
+@utility font-rmono {
+  font-family: "Space Mono", ui-monospace, monospace;
+}
+@utility bg-reelio {
+  background-color: #ede8df;
+  background-image: radial-gradient(color-mix(in oklab, #1a1612 9%, transparent) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+/* Origami card: one folded corner, top right. */
+@utility notch {
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+}

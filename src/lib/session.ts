@@ -4,8 +4,10 @@ import {
   nextStreak,
   shouldCheckIn,
   shouldInterrupt,
+  thresholdFor,
   type EntryContext,
 } from "./drift";
+import { DEFAULT_BASELINE, type Baseline } from "./baseline";
 
 export type ReelItem = { kind: "reel"; id: number };
 export type PauseItem = {
@@ -55,6 +57,11 @@ export interface SessionState {
   dailyMinBefore: number;
   /** Motion and light sensors agree the phone is held still in a dark room. */
   stillInDark: boolean;
+  /** This person's learned normal, fixed for the session. */
+  baseline: Baseline;
+  /** Highest score reached this session (used to classify it afterwards). */
+  peakScore: number;
+  startedAt: number;
   keptGoing: boolean;
   pauseCount: number;
   summary: { ms: number; reels: number } | null;
@@ -67,10 +74,16 @@ export type SessionAction =
   | { type: "tick"; dtMs: number; speed: number }
   | { type: "step"; dir: 1 | -1; dwellMs: number; hour: number | null; at?: number }
   | { type: "engage"; id: number }
-  | { type: "setContext"; entry?: EntryContext; dailyMinBefore?: number; stillInDark?: boolean }
+  | {
+      type: "setContext";
+      entry?: EntryContext;
+      dailyMinBefore?: number;
+      stillInDark?: boolean;
+      baseline?: Baseline;
+    }
   | { type: "keepGoing" }
   | { type: "close" }
-  | { type: "start" }
+  | { type: "start"; baseline?: Baseline; dailyMinBefore?: number; startedAt?: number }
   | { type: "answer"; answer: CheckInAnswer };
 
 function withLookahead(items: FeedItem[], index: number, nextReelId: number) {
@@ -83,7 +96,13 @@ function withLookahead(items: FeedItem[], index: number, nextReelId: number) {
 export function createSession(
   sessionNumber = 1,
   firstReelId = 0,
-  context: { entry?: EntryContext; dailyMinBefore?: number; stillInDark?: boolean } = {},
+  context: {
+    entry?: EntryContext;
+    dailyMinBefore?: number;
+    stillInDark?: boolean;
+    baseline?: Baseline;
+    startedAt?: number;
+  } = {},
 ): SessionState {
   const { items, nextReelId } = withLookahead([], 0, firstReelId);
   return {
@@ -103,6 +122,9 @@ export function createSession(
     entry: context.entry ?? "home",
     dailyMinBefore: context.dailyMinBefore ?? 0,
     stillInDark: context.stillInDark ?? false,
+    baseline: context.baseline ?? DEFAULT_BASELINE,
+    peakScore: 0,
+    startedAt: context.startedAt ?? 0,
     keptGoing: false,
     pauseCount: 0,
     summary: null,
@@ -145,8 +167,9 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         entry: s.entry,
         dailyMinBefore: s.dailyMinBefore,
         stillInDark: s.stillInDark,
+        baseline: s.baseline,
       });
-      let streak = nextStreak(s.streak, score);
+      let streak = nextStreak(s.streak, score, thresholdFor(s.baseline));
       let items = s.items;
       let pauseCount = s.pauseCount;
       let lastPauseAtMs = s.lastPauseAtMs;
@@ -189,6 +212,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         streak,
         pauseCount,
         lastPauseAtMs,
+        peakScore: Math.max(s.peakScore, score),
       };
     }
 
@@ -208,6 +232,7 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
         entry: a.entry ?? s.entry,
         dailyMinBefore: a.dailyMinBefore ?? s.dailyMinBefore,
         stillInDark: a.stillInDark ?? s.stillInDark,
+        baseline: a.baseline ?? s.baseline,
       };
 
     case "keepGoing": {
@@ -231,8 +256,10 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       // The next session inherits the entry choice, and today's total grows by the session just ended.
       const next = createSession(s.sessionNumber + 1, s.nextReelId, {
         entry: s.entry,
-        dailyMinBefore: s.dailyMinBefore + s.sessionMs / 60000,
+        dailyMinBefore: a.dailyMinBefore ?? s.dailyMinBefore + s.sessionMs / 60000,
         stillInDark: s.stillInDark,
+        baseline: a.baseline ?? s.baseline,
+        startedAt: a.startedAt ?? 0,
       });
       return { ...next, history: s.history };
     }
