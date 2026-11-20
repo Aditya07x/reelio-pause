@@ -79,11 +79,12 @@ function AssumptionsPage() {
             and turned passive: the kind of session people say afterwards they regret.
           </p>
           <p className="mt-4 text-[14px] leading-relaxed text-muted-foreground">
-            It never asks anything before or during a session. It watches six behavioural signals,
-            each chosen because published research links it to regretted or meaningless use. The
-            weights follow how strong that evidence is. Where a study gave no number, the threshold
-            is a design assumption and says so. None of this has been validated as a live trigger
-            yet. That is the next step (see the end of this page).
+            It never asks anything before or during a session, and it is active only on the Reels
+            feed. It watches {FACTORS.length} behavioural signals, each chosen because published
+            research links it to regretted or meaningless use, and each already logged by the Reelio
+            Android app. The weights follow how strong that evidence is. Where a study gave no
+            number, the threshold is a design assumption and says so. None of this has been
+            validated as a live trigger yet. That is the next step (see the end of this page).
           </p>
         </header>
 
